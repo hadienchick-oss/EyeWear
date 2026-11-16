@@ -384,3 +384,23 @@ th {
         max-height: 85vh;
     }
 }
+
+
+/* TRẠNG THÁI SẢN PHẨM & KHÓA NÚT MUA */
+.btn-disabled {
+    background: #d1d5db !important;
+    color: #6b7280 !important;
+    cursor: not-allowed !important;
+}
+.product-card.product-out {
+    opacity: 0.72;
+}
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-active { background: #ecfdf5; color: #065f46; }
+.status-warning { background: #fffbeb; color: #92400e; }
+.status-stopped { background: #fef2f2; color: #991b1b; }

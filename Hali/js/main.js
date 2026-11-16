@@ -7,12 +7,10 @@ function switchTab(tabId, el) {
     if (target) target.classList.add('active');
     if (el) el.classList.add('active');
 
-    // Tự đóng menu mobile sau khi chọn tab
     const navLinks = document.querySelector('.nav-links');
     if (navLinks) navLinks.classList.remove('open');
 }
 
-// Bật/tắt menu trên mobile
 function toggleMobileMenu() {
     const navLinks = document.querySelector('.nav-links');
     if (navLinks) {
@@ -28,7 +26,6 @@ function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('open');
 }
 
-// Chuyển đổi nhanh giữa Modal Đăng nhập và Modal Đăng ký
 function switchAuthModal(fromModalId, toModalId) {
     closeModal(fromModalId);
     openModal(toModalId);
@@ -98,15 +95,53 @@ function openStaffModal(mode, data = null) {
     openModal('staffModal');
 }
 
-// 6. Xử lý POPUP CHỌN TRÒNG KÍNH TỪNG BƯỚC (3 Bước)
+// 6. Mở Modal Thêm / Sửa Voucher Khuyến Mãi (Bảng VOUCHER)
+function openVoucherModal(mode, data = null) {
+    document.getElementById('voucherFormAction').value = mode;
+    if (mode === 'add') {
+        document.getElementById('voucherModalTitle').innerText = 'Phát Hành Mã Voucher Mới';
+        document.getElementById('voucherForm').reset();
+        document.getElementById('maVoucher').value = '';
+    } else {
+        document.getElementById('voucherModalTitle').innerText = 'Cập Nhật Voucher: ' + data.code;
+        document.getElementById('maVoucher').value = data.maVoucher;
+        document.getElementById('codeVoucher').value = data.code;
+        document.getElementById('loaiGiam').value = data.loaiGiam;
+        document.getElementById('giaTriGiam').value = data.giaTriGiam;
+        document.getElementById('donHangToiThieu').value = data.donHangToiThieu;
+        document.getElementById('gioiHanDung').value = data.gioiHanDung !== null ? data.gioiHanDung : '';
+        if (data.ngayHetHan) {
+            // Chuyển YYYY-MM-DD HH:MM:SS sang định dạng datetime-local YYYY-MM-DDTHH:MM
+            document.getElementById('ngayHetHan').value = data.ngayHetHan.replace(' ', 'T').slice(0, 16);
+        }
+    }
+    openModal('voucherModal');
+}
+
+// 7. Xử lý POPUP CHỌN TRÒNG KÍNH TỪNG BƯỚC + ÁP DỤNG VOUCHER TRỰC TIẾP
 let currentFramePrice = 0;
-let currentLensPrice = 0;
+let currentLensPrice = 350000;
+let currentDiscountAmount = 0;
+let appliedVoucherCode = '';
 let currentStep = 1;
 
 function openLensWizard(maSP, tenSP, giaGong) {
     currentFramePrice = parseFloat(giaGong);
-    currentLensPrice = 0;
+    currentLensPrice = 350000;
+    currentDiscountAmount = 0;
+    appliedVoucherCode = '';
+
     document.getElementById('wizardProductName').innerText = tenSP + ' (' + maSP + ')';
+    const vcInput = document.getElementById('wizardVoucherInput');
+    if (vcInput) vcInput.value = '';
+    const vcMsg = document.getElementById('wizardVoucherMsg');
+    if (vcMsg) vcMsg.innerText = '';
+
+    // Đặt mặc định chọn tròng đầu tiên (350.000đ)
+    document.querySelectorAll('#step3 .option-box').forEach((box, idx) => {
+        box.classList.toggle('selected', idx === 0);
+    });
+
     updateWizardTotal();
     goToStep(1);
     openModal('lensWizardModal');
@@ -126,15 +161,87 @@ function selectLensOption(price, el) {
     currentLensPrice = parseFloat(price);
     document.querySelectorAll('#step3 .option-box').forEach(box => box.classList.remove('selected'));
     el.classList.add('selected');
-    updateWizardTotal();
+    // Nếu đã áp mã voucher, tính lại hoặc reset nếu thay đổi tổng tiền
+    if (appliedVoucherCode !== '') {
+        applyVoucherInWizard();
+    } else {
+        updateWizardTotal();
+    }
 }
 
 function updateWizardTotal() {
-    const total = currentFramePrice + currentLensPrice;
-    document.getElementById('wizardTotalPrice').innerText = total.toLocaleString('vi-VN') + ' đ';
+    const rawTotal = currentFramePrice + currentLensPrice;
+    const finalTotal = Math.max(0, rawTotal - currentDiscountAmount);
+    document.getElementById('wizardTotalPrice').innerText = finalTotal.toLocaleString('vi-VN') + ' đ';
+
+    const discountRow = document.getElementById('wizardDiscountInfo');
+    if (discountRow) {
+        if (currentDiscountAmount > 0) {
+            discountRow.style.display = 'block';
+            discountRow.innerText = 'Đã giảm: -' + currentDiscountAmount.toLocaleString('vi-VN') + ' đ (Mã: ' + appliedVoucherCode + ')';
+        } else {
+            discountRow.style.display = 'none';
+        }
+    }
+}
+
+function applyVoucherInWizard() {
+    const codeInput = document.getElementById('wizardVoucherInput');
+    const msgEl = document.getElementById('wizardVoucherMsg');
+    const code = codeInput.value.trim();
+    const rawTotal = currentFramePrice + currentLensPrice;
+
+    if (!code) {
+        msgEl.style.color = '#991b1b';
+        msgEl.innerText = 'Vui lòng nhập mã khuyến mãi Voucher!';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'check_voucher');
+    formData.append('code', code);
+    formData.append('tongTamTinh', rawTotal);
+
+    fetch('xuly/voucher_action.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            currentDiscountAmount = parseFloat(data.soTienGiam);
+            appliedVoucherCode = data.code;
+            msgEl.style.color = '#065f46';
+            msgEl.innerText = data.message;
+        } else {
+            currentDiscountAmount = 0;
+            appliedVoucherCode = '';
+            msgEl.style.color = '#991b1b';
+            msgEl.innerText = data.message;
+        }
+        updateWizardTotal();
+    })
+    .catch(() => {
+        msgEl.style.color = '#991b1b';
+        msgEl.innerText = 'Không thể kiểm tra mã Voucher lúc này.';
+    });
+}
+
+function removeVoucherInWizard() {
+    currentDiscountAmount = 0;
+    appliedVoucherCode = '';
+    document.getElementById('wizardVoucherInput').value = '';
+    const msgEl = document.getElementById('wizardVoucherMsg');
+    msgEl.style.color = '#4b5563';
+    msgEl.innerText = 'Đã gỡ bỏ mã giảm giá.';
+    updateWizardTotal();
 }
 
 function finishLensWizard() {
-    alert('Đã cấu hình gọng + tròng kính thành công! Tổng tạm tính: ' + document.getElementById('wizardTotalPrice').innerText);
+    let summary = 'Đã cấu hình gọng + tròng kính thành công!\nTổng thanh toán: ' + document.getElementById('wizardTotalPrice').innerText;
+    if (appliedVoucherCode) {
+        summary += '\n(Đã áp dụng mã Voucher: ' + appliedVoucherCode + ')';
+    }
+    alert(summary);
     closeModal('lensWizardModal');
 }

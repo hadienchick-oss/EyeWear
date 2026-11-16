@@ -4,6 +4,8 @@ require_once 'xuly/functions.php';
 $dsThuongHieu = layDanhSachThuongHieu($conn);
 $dsSanPham = layDanhSachSanPham($conn);
 $dsNhanVien = isAdmin() ? layDanhSachNhanVien($conn) : [];
+$dsVoucher = isStaffOrAdmin() ? layDanhSachVoucher($conn) : [];
+$dsLichSuVoucher = isAdmin() ? layLichSuVoucher($conn) : [];
 
 $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 ?>
@@ -12,7 +14,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Việt MAC</title>
+    <title>Việt MAC - Hệ Thống Cửa Hàng Mắt Kính</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -36,6 +38,10 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 <li>
                     <a class="nav-admin-badge <?= $activeTab === 'admin-brand' ? 'active' : '' ?>" 
                        onclick="switchTab('admin-brand', this)">Quản Lý Thương Hiệu</a>
+                </li>
+                <li>
+                    <a class="nav-admin-badge <?= $activeTab === 'admin-voucher' ? 'active' : '' ?>" 
+                       onclick="switchTab('admin-voucher', this)">Quản Lý Voucher</a>
                 </li>
             <?php endif; ?>
 
@@ -75,7 +81,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <section id="admin-product" class="section-view <?= $activeTab === 'admin-product' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
-                    <h2>Quản Lý Sản Phẩm & Tồn Kho</h2>
+                    <h2>Quản Lý Sản Phẩm & Tồn Kho - Việt MAC</h2>
                     <p style="font-size:13px; color:#6b7280;">Ảnh sản phẩm được lưu tại thư mục: <strong>images/anh_sp/</strong></p>
                 </div>
                 <button class="btn btn-dark" onclick="openProductModal('add')">+ Thêm Sản Phẩm Mới</button>
@@ -120,7 +126,15 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                 <td>
                                     Tồn: <strong><?= $sp['soLuong'] ?></strong> | Giữ 15p: <strong><?= $sp['soLuongDat'] ?></strong>
                                 </td>
-                                <td><?= htmlspecialchars($sp['trangThai']) ?></td>
+                                <td>
+                                    <?php if ($sp['trangThai'] === 'Đang bán'): ?>
+                                        <span class="status-badge status-active">Đang bán</span>
+                                    <?php elseif ($sp['trangThai'] === 'Tạm hết' || $sp['trangThai'] === 'Tạm ngưng bán'): ?>
+                                        <span class="status-badge status-warning"><?= htmlspecialchars($sp['trangThai']) ?></span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-stopped"><?= htmlspecialchars($sp['trangThai']) ?></span>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <button class="btn btn-outline btn-sm" 
                                             onclick='openProductModal("edit", <?= json_encode($sp, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
@@ -144,7 +158,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <section id="admin-brand" class="section-view <?= $activeTab === 'admin-brand' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
-                    <h2>Quản Lý Thương Hiệu</h2>
+                    <h2>Quản Lý Thương Hiệu Đối Tác</h2>
                     <p style="font-size:13px; color:#6b7280;">Logo thương hiệu được lưu tại thư mục: <strong>images/logo_thuonghieu/</strong></p>
                 </div>
                 <button class="btn btn-dark" onclick="openBrandModal('add')">+ Thêm Thương Hiệu</button>
@@ -193,16 +207,148 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </table>
             </div>
         </section>
+
+        <!-- =======================================================
+             PHÂN HỆ 3: QUẢN LÝ VOUCHER KHUYẾN MÃI (VOUCHER + LICHSUVOUCHER)
+             Bám sát Quy trình 2.2.8, Bảng 3.16, Bảng 3.17 và Use case Bảng 3.33
+             ======================================================= -->
+        <section id="admin-voucher" class="section-view <?= $activeTab === 'admin-voucher' ? 'active' : '' ?>">
+            <div class="section-header">
+                <div>
+                    <h2>Quản Lý Chiến Dịch Voucher Khuyến Mãi</h2>
+                    <p style="font-size:13px; color:#6b7280;">
+                        Bảng <strong>VOUCHER</strong> &amp; <strong>LICHSUVOUCHER</strong> (Admin phát hành/chỉnh sửa; Nhân viên tra cứu để áp dụng cho khách)
+                    </p>
+                </div>
+                <?php if (isAdmin()): ?>
+                    <button class="btn btn-dark" onclick="openVoucherModal('add')">+ Phát Hành Voucher Mới</button>
+                <?php endif; ?>
+            </div>
+
+            <div class="card" style="margin-bottom: 24px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã VC</th>
+                            <th>Mã Code</th>
+                            <th>Loại Giảm</th>
+                            <th>Giá Trị Giảm</th>
+                            <th>Đơn Tối Thiểu</th>
+                            <th>Lượt Dùng (Đã dùng / Giới hạn)</th>
+                            <th>Ngày Hết Hạn</th>
+                            <th>Trạng Thái</th>
+                            <?php if (isAdmin()): ?>
+                                <th>Thao Tác</th>
+                            <?php endif; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($dsVoucher)): ?>
+                            <tr><td colspan="9" style="text-align:center;">Chưa có chiến dịch mã Voucher nào được phát hành.</td></tr>
+                        <?php else: ?>
+                            <?php 
+                            $nowObj = new DateTime();
+                            foreach ($dsVoucher as $vc): 
+                                $hetHanObj = new DateTime($vc['ngayHetHan']);
+                                $isExpired = ($hetHanObj <= $nowObj);
+                                $isOut = ($vc['gioiHanDung'] !== null && (int)$vc['daDung'] >= (int)$vc['gioiHanDung']);
+                            ?>
+                            <tr>
+                                <td><strong><?= $vc['maVoucher'] ?></strong></td>
+                                <td><span class="role-tag" style="background:#111827;color:#fff;letter-spacing:1px;"><?= htmlspecialchars($vc['code']) ?></span></td>
+                                <td><?= htmlspecialchars($vc['loaiGiam']) ?></td>
+                                <td>
+                                    <?php if ($vc['loaiGiam'] === 'Phần trăm' || $vc['loaiGiam'] === '%'): ?>
+                                        <strong><?= (float)$vc['giaTriGiam'] ?>%</strong>
+                                    <?php else: ?>
+                                        <strong><?= number_format($vc['giaTriGiam'], 0, ',', '.') ?> đ</strong>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= number_format($vc['donHangToiThieu'], 0, ',', '.') ?> đ</td>
+                                <td>
+                                    <strong><?= (int)$vc['daDung'] ?></strong> / 
+                                    <?= $vc['gioiHanDung'] !== null ? (int)$vc['gioiHanDung'] : 'Không giới hạn' ?>
+                                </td>
+                                <td><?= date('d/m/Y H:i', strtotime($vc['ngayHetHan'])) ?></td>
+                                <td>
+                                    <?php if ($isExpired): ?>
+                                        <span class="status-badge status-stopped">Hết hạn</span>
+                                    <?php elseif ($isOut): ?>
+                                        <span class="status-badge status-warning">Hết lượt dùng</span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-active">Đang hiệu lực</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php if (isAdmin()): ?>
+                                <td>
+                                    <button class="btn btn-outline btn-sm" 
+                                            onclick='openVoucherModal("edit", <?= json_encode($vc, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
+                                    <?php if (!$isExpired && !$isOut): ?>
+                                        <a href="xuly/voucher_action.php?action=disable&id=<?= $vc['maVoucher'] ?>" 
+                                           class="btn btn-outline btn-sm"
+                                           onclick="return confirm('Vô hiệu hóa sớm mã <?= $vc['code'] ?>?')">Vô hiệu</a>
+                                    <?php endif; ?>
+                                    <a href="xuly/voucher_action.php?action=delete&id=<?= $vc['maVoucher'] ?>" 
+                                       class="btn btn-danger btn-sm"
+                                       onclick="return confirm('Xác nhận xóa hoặc hủy mã Voucher <?= $vc['code'] ?>?')">Xóa</a>
+                                </td>
+                                <?php endif; ?>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <?php if (isAdmin()): ?>
+            <div class="section-header" style="margin-top:28px;">
+                <div>
+                    <h3>Lịch Sử Sử Dụng Voucher (Bảng LICHSUVOUCHER)</h3>
+                    <p style="font-size:13px; color:#6b7280;">Truy vết các đơn hàng đã áp dụng mã giảm giá nhằm chống lạm dụng khuyến mãi</p>
+                </div>
+            </div>
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Lịch Sử</th>
+                            <th>Mã Code</th>
+                            <th>Mã Đơn Hàng</th>
+                            <th>Khách Nhận Hàng</th>
+                            <th>Tổng Tiền Đơn</th>
+                            <th>Thời Điểm Dùng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($dsLichSuVoucher)): ?>
+                            <tr><td colspan="6" style="text-align:center;">Chưa có đơn hàng nào ghi nhận trong bảng LICHSUVOUCHER.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($dsLichSuVoucher as $ls): ?>
+                            <tr>
+                                <td><strong><?= $ls['maLichSu'] ?></strong></td>
+                                <td><strong><?= htmlspecialchars($ls['code']) ?></strong></td>
+                                <td><?= htmlspecialchars($ls['maDonHang']) ?></td>
+                                <td><?= htmlspecialchars($ls['tenNN']) ?> (<?= htmlspecialchars($ls['soDienThoai']) ?>)</td>
+                                <td><strong><?= number_format($ls['tongTien'], 0, ',', '.') ?> đ</strong></td>
+                                <td><?= date('d/m/Y H:i:s', strtotime($ls['ngayDung'])) ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </section>
         <?php endif; ?>
 
         <!-- =======================================================
-             PHÂN HỆ 3: QUẢN LÝ NHÂN VIÊN (CHỈ DÀNH CHO ADMIN VT01)
+             PHÂN HỆ 4: QUẢN LÝ NHÂN VIÊN (CHỈ DÀNH CHO ADMIN VT01)
              ======================================================= -->
         <?php if (isAdmin()): ?>
         <section id="admin-staff" class="section-view <?= $activeTab === 'admin-staff' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
-                    <h2>Quản Lý Nhân Viên Hệ Thống</h2>
+                    <h2>Quản Lý Nhân Viên - Việt MAC</h2>
                     <p style="font-size:13px; color:#6b7280;">Phân quyền quản lý tài khoản nhân viên (Vai trò: NhanVien - VT02)</p>
                 </div>
                 <button class="btn btn-dark" onclick="openStaffModal('add')">+ Thêm Nhân Viên Mới</button>
@@ -246,34 +392,54 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <?php endif; ?>
 
         <!-- =======================================================
-             PHÂN HỆ 4: TRANG CỬA HÀNG & POPUP CHỌN TRÒNG TỪNG BƯỚC
+             PHÂN HỆ 5: TRANG CỬA HÀNG VIỆT MAC & POPUP CHỌN TRÒNG
              ======================================================= -->
         <section id="shop-view" class="section-view <?= $activeTab === 'shop-view' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
-                    <h2>Bộ Sưu Tập Gọng Kính & Kính Mát</h2>
-                    <p style="font-size:13px; color:#6b7280;">Chọn gọng kính và cấu hình tròng kính theo độ cận qua Popup từng bước</p>
+                    <h2>Bộ Sưu Tập Mắt Kính Việt MAC</h2>
+                    <p style="font-size:13px; color:#6b7280;">Chọn gọng kính chính hãng, cấu hình tròng kính theo độ cận và áp dụng mã Voucher ưu đãi</p>
                 </div>
             </div>
 
             <div class="product-grid">
-                <?php foreach ($dsSanPham as $sp): ?>
-                    <?php if ($sp['trangThai'] !== 'Ngừng bán'): ?>
-                    <div class="product-card">
-                        <img src="<?= !empty($sp['hinhAnh']) ? 'images/anh_sp/' . htmlspecialchars($sp['hinhAnh']) : 'https://via.placeholder.com/260x140?text=Eyewear' ?>" alt="">
-                        <div class="product-brand"><?= htmlspecialchars($sp['tenThuongHieu'] ?? 'OWNDAYS') ?></div>
+                <?php 
+                $soSanPhamHienThi = 0;
+                foreach ($dsSanPham as $sp): 
+                    if (in_array($sp['trangThai'], ['Ngừng bán', 'Tạm ngưng bán'])) {
+                        continue;
+                    }
+                    $soSanPhamHienThi++;
+                    $tonKhaDung = (int)$sp['soLuong'] - (int)$sp['soLuongDat'];
+                    $coTheMua = ($sp['trangThai'] === 'Đang bán' && $tonKhaDung > 0);
+                ?>
+                    <div class="product-card <?= !$coTheMua ? 'product-out' : '' ?>">
+                        <img src="<?= !empty($sp['hinhAnh']) ? 'images/anh_sp/' . htmlspecialchars($sp['hinhAnh']) : 'https://via.placeholder.com/260x140?text=Viet+MAC' ?>" alt="">
+                        <div class="product-brand"><?= htmlspecialchars($sp['tenThuongHieu'] ?? 'Việt MAC') ?></div>
                         <div class="product-title"><?= htmlspecialchars($sp['tenSanPham']) ?></div>
                         <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">
                             Màu: <?= htmlspecialchars($sp['mauSac'] ?? 'Đen') ?> | Size: <?= htmlspecialchars($sp['kichThuoc'] ?? 'M') ?>
                         </div>
                         <div class="product-price"><?= number_format($sp['gia'], 0, ',', '.') ?> đ</div>
-                        <button class="btn btn-dark" style="width:100%;" 
-                                onclick="openLensWizard('<?= $sp['maSanPham'] ?>', '<?= htmlspecialchars($sp['tenSanPham'], ENT_QUOTES) ?>', <?= $sp['gia'] ?>)">
-                            Chọn Tròng Kính & Mua
-                        </button>
+
+                        <?php if ($coTheMua): ?>
+                            <button class="btn btn-dark" style="width:100%;" 
+                                    onclick="openLensWizard('<?= $sp['maSanPham'] ?>', '<?= htmlspecialchars($sp['tenSanPham'], ENT_QUOTES) ?>', <?= $sp['gia'] ?>)">
+                                Chọn Tròng Kính & Mua
+                            </button>
+                        <?php else: ?>
+                            <button class="btn btn-disabled" style="width:100%;" disabled>
+                                Tạm Hết Hàng
+                            </button>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
                 <?php endforeach; ?>
+
+                <?php if ($soSanPhamHienThi === 0): ?>
+                    <p style="grid-column: 1 / -1; text-align:center; color:#6b7280; padding: 40px 0;">
+                        Hiện chưa có sản phẩm nào đang mở bán.
+                    </p>
+                <?php endif; ?>
             </div>
         </section>
     </div>
@@ -284,7 +450,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
     <div id="loginModal" class="modal-overlay">
         <div class="modal-box" style="max-width: 420px;">
             <div class="modal-header">
-                <h3>Đăng Nhập Hệ Thống</h3>
+                <h3>Đăng Nhập Việt MAC</h3>
                 <button class="btn btn-outline btn-sm" onclick="closeModal('loginModal')">✕</button>
             </div>
             <form action="xuly/auth_action.php" method="POST">
@@ -315,7 +481,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <div class="modal-box" style="max-width: 560px;">
             <div class="modal-header">
                 <div>
-                    <h3>Đăng Ký Tài Khoản Thành Viên</h3>
+                    <h3>Đăng Ký Thành Viên Việt MAC</h3>
                     <p style="font-size:12px; color:#6b7280;">Lưu trữ thông tin giao hàng, đơn kính thuốc & nhận ưu đãi Voucher</p>
                 </div>
                 <button class="btn btn-outline btn-sm" onclick="closeModal('registerModal')">✕</button>
@@ -379,7 +545,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 
                 <div class="form-group">
                     <label>Tên thương hiệu *</label>
-                    <input type="text" name="tenThuongHieu" id="tenThuongHieu" required placeholder="VD: Ray-Ban, Owndays...">
+                    <input type="text" name="tenThuongHieu" id="tenThuongHieu" required placeholder="VD: Ray-Ban, Gentle Monster...">
                 </div>
                 <div class="form-group">
                     <label>Logo thương hiệu (Lưu vào images/logo_thuonghieu/)</label>
@@ -471,9 +637,10 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     <div class="form-group">
                         <label>Trạng thái kinh doanh</label>
                         <select name="trangThai" id="trangThai">
-                            <option value="Đang bán">Đang bán</option>
-                            <option value="Tạm hết">Tạm hết</option>
-                            <option value="Ngừng bán">Ngừng bán</option>
+                            <option value="Đang bán">Đang bán (Hiện & Cho phép mua)</option>
+                            <option value="Tạm hết">Tạm hết (Hiện & Khóa nút mua)</option>
+                            <option value="Tạm ngưng bán">Tạm ngưng bán (Ẩn khỏi trang Shop)</option>
+                            <option value="Ngừng bán">Ngừng bán (Ẩn khỏi trang Shop)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -522,13 +689,64 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
     </div>
 
     <!-- =======================================================
-         MODAL 6: POPUP CHỌN TRÒNG KÍNH TỪNG BƯỚC (STEP-BY-STEP)
+         MODAL 6: PHÁT HÀNH / SỬA VOUCHER KHUYẾN MÃI (BẢNG VOUCHER)
+         Bám sát Bảng 3.16 & Bảng 3.33 trong báo cáo đồ án
+         ======================================================= -->
+    <div id="voucherModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 560px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="voucherModalTitle">Phát Hành Mã Voucher Mới</h3>
+                    <p style="font-size:12px; color:#6b7280;">Thiết lập chiến dịch giảm giá theo tiền mặt hoặc phần trăm (Bảng VOUCHER)</p>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="closeModal('voucherModal')">✕</button>
+            </div>
+            <form id="voucherForm" action="xuly/voucher_action.php" method="POST">
+                <input type="hidden" name="action" id="voucherFormAction" value="add">
+                <input type="hidden" name="maVoucher" id="maVoucher">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Chuỗi mã Code khuyến mãi *</label>
+                        <input type="text" name="code" id="codeVoucher" required placeholder="VD: VIETMAC2026, TRIANKH01" style="text-transform:uppercase;">
+                    </div>
+                    <div class="form-group">
+                        <label>Hình thức chiết khấu (loaiGiam) *</label>
+                        <select name="loaiGiam" id="loaiGiam" required>
+                            <option value="Tiền mặt">Theo số tiền cố định (VNĐ)</option>
+                            <option value="Phần trăm">Theo phần trăm (%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá trị giảm (giaTriGiam) *</label>
+                        <input type="number" step="0.01" min="1" name="giaTriGiam" id="giaTriGiam" required placeholder="VD: 150000 hoặc 15">
+                    </div>
+                    <div class="form-group">
+                        <label>Đơn hàng tối thiểu (donHangToiThieu - VNĐ)</label>
+                        <input type="number" step="1000" min="0" name="donHangToiThieu" id="donHangToiThieu" value="0" placeholder="VD: 500000">
+                    </div>
+                    <div class="form-group">
+                        <label>Giới hạn lượt dùng tối đa (gioiHanDung)</label>
+                        <input type="number" min="1" name="gioiHanDung" id="gioiHanDung" placeholder="Để trống nếu không giới hạn">
+                    </div>
+                    <div class="form-group">
+                        <label>Thời hạn hiệu lực cuối (ngayHetHan) *</label>
+                        <input type="datetime-local" name="ngayHetHan" id="ngayHetHan" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-dark" style="width:100%; margin-top:8px;">Lưu Chiến Dịch Voucher</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- =======================================================
+         MODAL 7: POPUP CHỌN TRÒNG KÍNH TỪNG BƯỚC + ÁP DỤNG VOUCHER
          ======================================================= -->
     <div id="lensWizardModal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
                 <div>
-                    <h3>Cấu Hình Tròng Kính & Độ Mắt</h3>
+                    <h3>Cấu Hình Tròng Kính & Độ Mắt - Việt MAC</h3>
                     <p id="wizardProductName" style="font-size:13px; color:#6b7280;"></p>
                 </div>
                 <button class="btn btn-outline btn-sm" onclick="closeModal('lensWizardModal')">✕</button>
@@ -537,7 +755,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="step-indicator">
                 <div class="step-dot active">Bước 1: Nhu cầu</div>
                 <div class="step-dot">Bước 2: Độ mắt (SPH/CYL/PD)</div>
-                <div class="step-dot">Bước 3: Chọn tròng kính</div>
+                <div class="step-dot">Bước 3: Chọn tròng & Voucher</div>
             </div>
 
             <!-- BƯỚC 1 -->
@@ -608,10 +826,22 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     <strong>+ 1.200.000 đ</strong>
                 </div>
 
+                <!-- KHUNG NHẬP MÃ KHUYẾN MÃI VOUCHER (Theo đúng Bảng 3.24) -->
+                <div style="margin-top: 14px; padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px;">
+                    <label style="font-size:13px; font-weight:600; display:block; margin-bottom:6px;">Mã khuyến mãi Voucher</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="wizardVoucherInput" placeholder="Nhập mã (VD: VIETMAC2026)" style="flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; text-transform:uppercase;">
+                        <button type="button" class="btn btn-dark btn-sm" onclick="applyVoucherInWizard()">Áp dụng</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="removeVoucherInWizard()">Gỡ bỏ</button>
+                    </div>
+                    <p id="wizardVoucherMsg" style="font-size:12px; margin-top:6px;"></p>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:12px; border-top:1px solid #e5e7eb;">
                     <div>
                         <span style="font-size:13px; color:#6b7280;">Tổng cộng (Gọng + Tròng):</span>
                         <h3 id="wizardTotalPrice">0 đ</h3>
+                        <p id="wizardDiscountInfo" style="display:none; font-size:12px; color:#065f46; font-weight:600;"></p>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button class="btn btn-outline" onclick="goToStep(2)">← Quay lại</button>

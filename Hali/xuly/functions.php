@@ -2,7 +2,7 @@
 require_once 'config.php';
 
 /**
- * 1. Hàm tự động sinh mã (VD: SP01, TH01, ND01, KH01, ANH01...)
+ * 1. Hàm tự động sinh mã (VD: SP01, TH01, ND01, KH01, VC01, ANH01...)
  */
 function taoMaTuDong($conn, $table, $column, $prefix) {
     $sql = "SELECT $column FROM $table WHERE $column LIKE :prefix ORDER BY LENGTH($column) DESC, $column DESC LIMIT 1";
@@ -21,7 +21,7 @@ function taoMaTuDong($conn, $table, $column, $prefix) {
 
 /**
  * 2. Các hàm kiểm tra quyền đăng nhập
- * VT01: Admin (Toàn quyền) | VT02: Nhân viên (Thêm/Sửa, không được Xóa) | VT03: Khách hàng
+ * VT01: Admin (Toàn quyền) | VT02: Nhân viên (Thêm/Sửa SP/TH, Áp dụng Voucher, không được tạo/xóa Voucher) | VT03: Khách hàng
  */
 function isLogged() {
     return isset($_SESSION['user']);
@@ -68,6 +68,26 @@ function layDanhSachSanPham($conn) {
  */
 function layDanhSachNhanVien($conn) {
     $sql = "SELECT * FROM NGUOIDUNG WHERE maVaiTro = 'VT02' ORDER BY maNguoiDung DESC";
+    return $conn->query($sql)->fetchAll();
+}
+
+/**
+ * 6. Lấy danh sách toàn bộ Voucher khuyến mãi (Bảng VOUCHER)
+ */
+function layDanhSachVoucher($conn) {
+    $sql = "SELECT * FROM VOUCHER ORDER BY maVoucher DESC";
+    return $conn->query($sql)->fetchAll();
+}
+
+/**
+ * 7. Lấy lịch sử sử dụng Voucher (Bảng LICHSUVOUCHER kết hợp VOUCHER và DONHANG)
+ */
+function layLichSuVoucher($conn) {
+    $sql = "SELECT ls.*, v.code, dh.tenNN, dh.soDienThoai, dh.tongTien
+            FROM LICHSUVOUCHER ls
+            JOIN VOUCHER v ON ls.maVoucher = v.maVoucher
+            JOIN DONHANG dh ON ls.maDonHang = dh.maDonHang
+            ORDER BY ls.ngayDung DESC";
     return $conn->query($sql)->fetchAll();
 }
 ?>
