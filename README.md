@@ -162,8 +162,10 @@ Cảm ơn các thành viên đã đóng góp để xây dựng nền tảng **Vi
 | Ảnh đại diện | Họ và Tên | Vai trò | Liên kết Github |
 | :---: | :--- | :--- | :--- |
 | <img src="https://github.com/hadienchick-oss.png" width="75" height="75" style="border-radius: 50%;" alt="Lý Văn Hải"/> | **Lý Văn Hải** | Fullstack Developer | [@hadienchick-oss](https://github.com/hadienchick-oss) |
-| <img src="https://github.com/maianhhao-it" width="75" height="75" style="border-radius: 50%;" alt="Mai Anh Hào"/> | **Mai Anh Hào** | Thiết kế sơ đồ hệ thống (System Analyst) | [@maianhhao-it](https://github.com/maianhhao-it) |
+| <img src="https://github.com/maianhhao-it.png" width="75" height="75" style="border-radius: 50%;" alt="Mai Anh Hào"/> | **Mai Anh Hào** | Thiết kế sơ đồ hệ thống (System Analyst) | [@maianhhao-it](https://github.com/maianhhao-it) |
 
 ## 📄 Giấy phép
 
 Dự án này được phát triển phục vụ mục đích học tập và nghiên cứu cho học phần **Thực tập Chuyên ngành** tại **Trường Đại học Công nghệ Sài Gòn (STU)**. Mọi quyền đều được bảo vệ theo quy định của nhà trường và nhóm tác giả.
+
+
