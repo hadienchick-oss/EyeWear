@@ -1,0 +1,5 @@
+Email			Vai trò		Pass
+admin@kinhmat.vn	Admin		123
+nhanvien@kinhmat.vn	Nhân viên	123
+nguyenvanan@gmail.com	Khách hàng	123
+bichngoc@gmail.com	Khách hàng	123
