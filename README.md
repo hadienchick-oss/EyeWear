@@ -40,7 +40,7 @@ Khác với các mặt hàng thời trang thông thường, việc kinh doanh m�
 * 🖨️ **Gia công Mài lắp & Giao vận:** Hỗ trợ nhân viên và Admin theo dõi quy trình đơn hàng (*Chờ xử lý* $\rightarrow$ *Đang xử lý* $\rightarrow$ *Mài lắp* $\rightarrow$ *Đóng gói* $\rightarrow$ *Đã giao*), tự động trích xuất thông số quang học để **In phiếu kỹ thuật mài lắp** và **In phiếu giao vận**.
 * 🎟️ **Quản lý Voucher & Truy vết chống gian lận:** Phát hành mã giảm giá theo số tiền cố định hoặc phần trăm ($\%$), kiểm tra giá trị đơn tối thiểu, giới hạn lượt dùng và lưu vết chi tiết trong bảng `LICHSUVOUCHER`.
 * 📊 **Thống kê doanh thu & Báo cáo:** Tổng hợp trực quan doanh thu bán lẻ, số lượng đơn hàng hoàn tất và biến động xuất nhập tồn kho theo ngày, tháng, năm.
-* 🕶️ **Phòng thử kính thực tế ảo AR (Virtual Try-On):** *(Đang phát triển / Sẽ cập nhật trong phiên bản tiếp theo)* Tính năng ướm thử gọng kính 3D trực tiếp qua camera thiết bị.
+
 
 ## 🏗 Kiến trúc dự án
 
