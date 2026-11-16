@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="images/logo.png" alt="Việt MAC Logo" width="120" height="120" style="border-radius: 16px;" />
+  <img src="Hali/images/logo.png" alt="Việt MAC Logo" width="120" height="120" style="border-radius: 16px;" />
 
 # 👓 VIỆT MAC - WEBSITE THƯƠNG MẠI ĐIỆN TỬ KINH DOANH MẮT KÍNH
 
