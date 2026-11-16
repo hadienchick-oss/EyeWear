@@ -166,4 +166,3 @@ Cảm ơn các thành viên đã đóng góp để xây dựng nền tảng **Vi
 
 ## 📄 Giấy phép
 
-Dự án này được phát triển phục vụ mục đích học tập và nghiên cứu cho học phần **Thực Tập Chuyên Ngành** tại **Trường Đại Học Công Nghệ Sài Gòn (STU)**. Mọi quyền được bảo lưu theo quy định của nhà trường và nhóm tác giả.
