@@ -9,13 +9,8 @@ if (!isStaffOrAdmin()) {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $uploadDir = '../images/logo_thuonghieu/';
+if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
 
-// Tự động tạo thư mục nếu chưa tồn tại
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
-}
-
-// 1. THÊM THƯƠNG HIỆU
 if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $maTH = taoMaTuDong($conn, 'THUONGHIEU', 'maThuongHieu', 'TH');
     $tenTH = trim($_POST['tenThuongHieu']);
@@ -29,8 +24,8 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $sql = "INSERT INTO THUONGHIEU (maThuongHieu, tenThuongHieu, moTa, logo) VALUES (?, ?, ?, ?)";
-        $conn->prepare($sql)->execute([$maTH, $tenTH, $moTa, $logoName]);
+        $conn->prepare("INSERT INTO THUONGHIEU (maThuongHieu, tenThuongHieu, moTa, logo) VALUES (?, ?, ?, ?)")
+             ->execute([$maTH, $tenTH, $moTa, $logoName]);
         $_SESSION['msg'] = "Thêm thương hiệu [$tenTH] thành công!";
     } catch (PDOException $e) {
         $_SESSION['err'] = "Lỗi: Tên thương hiệu đã tồn tại hoặc dữ liệu không hợp lệ.";
@@ -39,7 +34,6 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 2. SỬA THƯƠNG HIỆU
 if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $maTH = $_POST['maThuongHieu'];
     $tenTH = trim($_POST['tenThuongHieu']);
@@ -51,11 +45,11 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $logoName = $maTH . '_logo_' . time() . '.' . $ext;
             move_uploaded_file($_FILES['logo']['tmp_name'], $uploadDir . $logoName);
 
-            $sql = "UPDATE THUONGHIEU SET tenThuongHieu = ?, moTa = ?, logo = ? WHERE maThuongHieu = ?";
-            $conn->prepare($sql)->execute([$tenTH, $moTa, $logoName, $maTH]);
+            $conn->prepare("UPDATE THUONGHIEU SET tenThuongHieu = ?, moTa = ?, logo = ? WHERE maThuongHieu = ?")
+                 ->execute([$tenTH, $moTa, $logoName, $maTH]);
         } else {
-            $sql = "UPDATE THUONGHIEU SET tenThuongHieu = ?, moTa = ? WHERE maThuongHieu = ?";
-            $conn->prepare($sql)->execute([$tenTH, $moTa, $maTH]);
+            $conn->prepare("UPDATE THUONGHIEU SET tenThuongHieu = ?, moTa = ? WHERE maThuongHieu = ?")
+                 ->execute([$tenTH, $moTa, $maTH]);
         }
         $_SESSION['msg'] = "Cập nhật thương hiệu [$maTH] thành công!";
     } catch (PDOException $e) {
@@ -65,7 +59,6 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 3. XÓA THƯƠNG HIỆU (Chỉ Admin VT01 mới có quyền xóa)
 if ($action === 'delete') {
     if (!isAdmin()) {
         $_SESSION['err'] = "Nhân viên không có quyền xóa thương hiệu!";

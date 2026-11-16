@@ -43,7 +43,7 @@ CREATE TABLE `KHACHHANG` (
   CONSTRAINT `fk_khachhang_nguoidung` FOREIGN KEY (`maNguoiDung`) REFERENCES `NGUOIDUNG` (`maNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Bảng THUONGHIEU (Đã thêm cột logo)
+-- 4. Bảng THUONGHIEU
 DROP TABLE IF EXISTS `THUONGHIEU`;
 CREATE TABLE `THUONGHIEU` (
   `maThuongHieu` VARCHAR(20) NOT NULL,
@@ -264,8 +264,28 @@ CREATE TABLE `LICHSUVOUCHER` (
   CONSTRAINT `fk_lichsuvoucher_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 18. Bảng KHIEUNAI
+DROP TABLE IF EXISTS `KHIEUNAI`;
+CREATE TABLE `KHIEUNAI` (
+  `maKhieuNai` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) DEFAULT NULL,
+  `loaiKhieuNai` VARCHAR(50) NOT NULL COMMENT 'đơn hàng / thanh toán / sản phẩm',
+  `tieuDe` VARCHAR(255) NOT NULL,
+  `noiDung` TEXT NOT NULL,
+  `hinhAnh` VARCHAR(255) DEFAULT NULL,
+  `ngayTao` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `trangThai` VARCHAR(50) NOT NULL DEFAULT 'Chờ xử lý',
+  `phanHoi` TEXT DEFAULT NULL,
+  PRIMARY KEY (`maKhieuNai`),
+  KEY `fk_khieunai_khachhang` (`maKhachHang`),
+  KEY `fk_khieunai_donhang` (`maDonHang`),
+  CONSTRAINT `fk_khieunai_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_khieunai_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
--- NẠP SẴN VAI TRÒ & 4 ACCOUNT (Pass: 123 -> MD5: 202cb962ac59075b964b07152d234b70)
+-- NẠP SẴN DỮ LIỆU MẪU (Pass: 123 -> MD5: 202cb962ac59075b964b07152d234b70)
 -- ============================================================================
 
 INSERT INTO `VAITRO` (`maVaiTro`, `tenVaiTro`) VALUES
@@ -282,5 +302,14 @@ INSERT INTO `NGUOIDUNG` (`maNguoiDung`, `hoTen`, `email`, `matKhau`, `maVaiTro`)
 INSERT INTO `KHACHHANG` (`maKhachHang`, `maNguoiDung`, `gioiTinh`, `ngaySinh`, `soDienThoai`, `diaChi`) VALUES
 ('KH01', 'ND03', 'Nam', '2002-05-15 00:00:00', '0901234567', 'TP. Hồ Chí Minh'),
 ('KH02', 'ND04', 'Nữ', '2003-10-20 00:00:00', '0912345678', 'TP. Hồ Chí Minh');
+
+INSERT INTO `TRONGKINH` (`maTrongKinh`, `maSanPham`, `maKetQuaDo`, `loai`, `chietSuat`, `tinhNang`, `gia`, `vatLieu`) VALUES
+('TRK01', NULL, NULL, 'Đơn tròng', 1.56, 'Chống phản quang, chống tia UV400 cơ bản', 350000.00, 'Nhựa hữu cơ CR-39'),
+('TRK02', NULL, NULL, 'Đơn tròng', 1.60, 'Chống ánh sáng xanh máy tính, mỏng nhẹ hơn 20%', 650000.00, 'High-Index Plastic'),
+('TRK03', NULL, NULL, 'Đa tròng', 1.67, 'Siêu mỏng, Đổi màu khói khi ra nắng', 1200000.00, 'Polycarbonate cao cấp');
+
+INSERT INTO `VOUCHER` (`maVoucher`, `code`, `loaiGiam`, `giaTriGiam`, `donHangToiThieu`, `gioiHanDung`, `daDung`, `ngayHetHan`) VALUES
+('VC01', 'VIETMAC15', 'Phần trăm', 15, 500000.00, 50, 0, '2027-12-31 23:59:59'),
+('VC02', 'TRIANKH01', 'Tiền mặt', 150000, 800000.00, 30, 0, '2027-12-31 23:59:59');
 
 SET FOREIGN_KEY_CHECKS = 1;

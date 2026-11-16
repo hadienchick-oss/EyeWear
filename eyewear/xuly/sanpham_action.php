@@ -9,12 +9,8 @@ if (!isStaffOrAdmin()) {
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $uploadDir = '../images/anh_sp/';
+if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
 
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
-}
-
-// 1. THÊM SẢN PHẨM MỚI (HỖ TRỢ TẢI NHIỀU ẢNH CÙNG LÚC)
 if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn->beginTransaction();
@@ -26,38 +22,33 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $moTa = trim($_POST['moTa'] ?? '');
         $maThuongHieu = $_POST['maThuongHieu'];
 
-        // 1.1. Lưu bảng SANPHAM
-        $sqlSP = "INSERT INTO SANPHAM (maSanPham, tenSanPham, gia, trangThai, moTa, maThuongHieu) 
-                  VALUES (?, ?, ?, ?, ?, ?)";
-        $conn->prepare($sqlSP)->execute([$maSP, $tenSP, $gia, $trangThai, $moTa, $maThuongHieu]);
+        $conn->prepare("INSERT INTO SANPHAM (maSanPham, tenSanPham, gia, trangThai, moTa, maThuongHieu) VALUES (?, ?, ?, ?, ?, ?)")
+             ->execute([$maSP, $tenSP, $gia, $trangThai, $moTa, $maThuongHieu]);
 
-        // 1.2. Lưu bảng CHITIETSANPHAM
         $maCT = taoMaTuDong($conn, 'CHITIETSANPHAM', 'maCTSanPham', 'CTSP');
-        $sqlCT = "INSERT INTO CHITIETSANPHAM 
+        $conn->prepare("INSERT INTO CHITIETSANPHAM 
                   (maCTSanPham, maSanPham, kichThuoc, chieuRongKhung, chieuRongCau, chieuRongThauKinh, chieuCaoOngKinh, chieuDaiThaiDuong, mauSac, gioiTinh, vatLieu, moTa) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        $conn->prepare($sqlCT)->execute([
-            $maCT,
-            $maSP,
-            $_POST['kichThuoc'] ?: 'M',
-            $_POST['chieuRongKhung'] ?: null,
-            $_POST['chieuRongCau'] ?: null,
-            $_POST['chieuRongThauKinh'] ?: null,
-            $_POST['chieuCaoOngKinh'] ?: null,
-            $_POST['chieuDaiThaiDuong'] ?: null,
-            trim($_POST['mauSac'] ?: 'Đen'),
-            $_POST['gioiTinh'] ?: 'Unisex',
-            trim($_POST['vatLieu'] ?: 'Acetate'),
-            $moTa
-        ]);
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+             ->execute([
+                $maCT,
+                $maSP,
+                $_POST['kichThuoc'] ?: 'M',
+                $_POST['chieuRongKhung'] ?: null,
+                $_POST['chieuRongCau'] ?: null,
+                $_POST['chieuRongThauKinh'] ?: null,
+                $_POST['chieuCaoOngKinh'] ?: null,
+                $_POST['chieuDaiThaiDuong'] ?: null,
+                trim($_POST['mauSac'] ?: 'Đen'),
+                $_POST['gioiTinh'] ?: 'Unisex',
+                trim($_POST['vatLieu'] ?: 'Acetate'),
+                $moTa
+             ]);
 
-        // 1.3. Lưu bảng TONKO
         $maTK = taoMaTuDong($conn, 'TONKO', 'maTonKho', 'TK');
         $soLuong = (int)($_POST['soLuong'] ?? 0);
-        $sqlTK = "INSERT INTO TONKO (maTonKho, maSanPham, soLuong, soLuongDat) VALUES (?, ?, ?, 0)";
-        $conn->prepare($sqlTK)->execute([$maTK, $maSP, $soLuong]);
+        $conn->prepare("INSERT INTO TONKO (maTonKho, maSanPham, soLuong, soLuongDat) VALUES (?, ?, ?, 0)")
+             ->execute([$maTK, $maSP, $soLuong]);
 
-        // 1.4. Upload NHIỀU ẢNH vào images/anh_sp/ và lưu bảng ANHSP (Ảnh đầu tiên tự động là anhChinh = 1)
         if (!empty($_FILES['hinhAnh']['name'][0])) {
             $totalFiles = count($_FILES['hinhAnh']['name']);
             for ($i = 0; $i < $totalFiles; $i++) {
@@ -69,8 +60,8 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $maAnh = taoMaTuDong($conn, 'ANHSP', 'maAnh', 'ANH');
                     $anhChinh = ($i === 0) ? 1 : 0;
-                    $sqlAnh = "INSERT INTO ANHSP (maAnh, maSanPham, hinhAnh, anhChinh) VALUES (?, ?, ?, ?)";
-                    $conn->prepare($sqlAnh)->execute([$maAnh, $maSP, $tenFileAnh, $anhChinh]);
+                    $conn->prepare("INSERT INTO ANHSP (maAnh, maSanPham, hinhAnh, anhChinh) VALUES (?, ?, ?, ?)")
+                         ->execute([$maAnh, $maSP, $tenFileAnh, $anhChinh]);
                 }
             }
         }
@@ -85,7 +76,6 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 2. SỬA SẢN PHẨM (HỖ TRỢ TẢI THÊM NHIỀU ẢNH HOẶC THAY THẾ BỘ ẢNH)
 if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn->beginTransaction();
@@ -97,36 +87,32 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $moTa = trim($_POST['moTa'] ?? '');
         $maThuongHieu = $_POST['maThuongHieu'];
 
-        // 2.1. Cập nhật SANPHAM
-        $sqlSP = "UPDATE SANPHAM SET tenSanPham=?, gia=?, trangThai=?, moTa=?, maThuongHieu=? WHERE maSanPham=?";
-        $conn->prepare($sqlSP)->execute([$tenSP, $gia, $trangThai, $moTa, $maThuongHieu, $maSP]);
+        $conn->prepare("UPDATE SANPHAM SET tenSanPham=?, gia=?, trangThai=?, moTa=?, maThuongHieu=? WHERE maSanPham=?")
+             ->execute([$tenSP, $gia, $trangThai, $moTa, $maThuongHieu, $maSP]);
 
-        // 2.2. Cập nhật CHITIETSANPHAM
-        $sqlCT = "UPDATE CHITIETSANPHAM 
+        $conn->prepare("UPDATE CHITIETSANPHAM 
                   SET kichThuoc=?, chieuRongKhung=?, chieuRongCau=?, chieuRongThauKinh=?, 
                       chieuCaoOngKinh=?, chieuDaiThaiDuong=?, mauSac=?, gioiTinh=?, vatLieu=?, moTa=? 
-                  WHERE maSanPham=?";
-        $conn->prepare($sqlCT)->execute([
-            $_POST['kichThuoc'] ?: 'M',
-            $_POST['chieuRongKhung'] ?: null,
-            $_POST['chieuRongCau'] ?: null,
-            $_POST['chieuRongThauKinh'] ?: null,
-            $_POST['chieuCaoOngKinh'] ?: null,
-            $_POST['chieuDaiThaiDuong'] ?: null,
-            trim($_POST['mauSac'] ?: 'Đen'),
-            $_POST['gioiTinh'] ?: 'Unisex',
-            trim($_POST['vatLieu'] ?: 'Acetate'),
-            $moTa,
-            $maSP
-        ]);
+                  WHERE maSanPham=?")
+             ->execute([
+                $_POST['kichThuoc'] ?: 'M',
+                $_POST['chieuRongKhung'] ?: null,
+                $_POST['chieuRongCau'] ?: null,
+                $_POST['chieuRongThauKinh'] ?: null,
+                $_POST['chieuCaoOngKinh'] ?: null,
+                $_POST['chieuDaiThaiDuong'] ?: null,
+                trim($_POST['mauSac'] ?: 'Đen'),
+                $_POST['gioiTinh'] ?: 'Unisex',
+                trim($_POST['vatLieu'] ?: 'Acetate'),
+                $moTa,
+                $maSP
+             ]);
 
-        // 2.3. Cập nhật số lượng tồn vật lý trong bảng TONKO
         $soLuong = (int)($_POST['soLuong'] ?? 0);
         $conn->prepare("UPDATE TONKO SET soLuong = ? WHERE maSanPham = ?")->execute([$soLuong, $maSP]);
 
-        // 2.4. Nếu có chọn tải lên nhiều ảnh mới
         if (!empty($_FILES['hinhAnh']['name'][0])) {
-            $cheDoAnh = $_POST['cheDoAnh'] ?? 'append'; // 'replace' = thay toàn bộ ảnh cũ, 'append' = thêm vào bộ ảnh
+            $cheDoAnh = $_POST['cheDoAnh'] ?? 'append';
 
             if ($cheDoAnh === 'replace') {
                 $conn->prepare("DELETE FROM ANHSP WHERE maSanPham = ?")->execute([$maSP]);
@@ -149,8 +135,8 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $anhChinh = (!$hasMainImage && $i === 0) ? 1 : 0;
                     if ($anhChinh === 1) $hasMainImage = true;
 
-                    $sqlAnh = "INSERT INTO ANHSP (maAnh, maSanPham, hinhAnh, anhChinh) VALUES (?, ?, ?, ?)";
-                    $conn->prepare($sqlAnh)->execute([$maAnh, $maSP, $tenFileAnh, $anhChinh]);
+                    $conn->prepare("INSERT INTO ANHSP (maAnh, maSanPham, hinhAnh, anhChinh) VALUES (?, ?, ?, ?)")
+                         ->execute([$maAnh, $maSP, $tenFileAnh, $anhChinh]);
                 }
             }
         }
@@ -165,13 +151,11 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 3. XÓA 1 ẢNH PHỤ TRONG BỘ ẢNH SẢN PHẨM
 if ($action === 'delete_img') {
     $maAnh = $_GET['maAnh'] ?? '';
     $maSP = $_GET['maSP'] ?? '';
     if ($maAnh && $maSP) {
         $conn->prepare("DELETE FROM ANHSP WHERE maAnh = ?")->execute([$maAnh]);
-        // Đảm bảo luôn có 1 ảnh chính nếu còn ảnh
         $checkMain = $conn->prepare("SELECT COUNT(*) FROM ANHSP WHERE maSanPham = ? AND anhChinh = 1");
         $checkMain->execute([$maSP]);
         if ($checkMain->fetchColumn() == 0) {
@@ -183,7 +167,6 @@ if ($action === 'delete_img') {
     exit;
 }
 
-// 4. ĐẶT ẢNH LÀM ẢNH CHÍNH ĐẠI DIỆN
 if ($action === 'set_main_img') {
     $maAnh = $_GET['maAnh'] ?? '';
     $maSP = $_GET['maSP'] ?? '';
@@ -196,7 +179,6 @@ if ($action === 'set_main_img') {
     exit;
 }
 
-// 5. XÓA SẢN PHẨM (Chỉ Admin VT01 mới được xóa)
 if ($action === 'delete') {
     if (!isAdmin()) {
         $_SESSION['err'] = "Nhân viên không có quyền xóa sản phẩm!";

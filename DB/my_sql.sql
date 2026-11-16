@@ -1,286 +1,310 @@
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'db_kinh_mat')
-BEGIN
-    CREATE DATABASE [db_kinh_mat];
-END
-GO
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
-USE [db_kinh_mat];
-GO
+CREATE DATABASE IF NOT EXISTS `db_kinh_mat`
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 
--- Tự động xóa bảng cũ nếu có để chạy độc lập không báo lỗi
-IF OBJECT_ID('dbo.LICHSUVOUCHER', 'U') IS NOT NULL DROP TABLE dbo.LICHSUVOUCHER;
-IF OBJECT_ID('dbo.DANHGIA', 'U') IS NOT NULL DROP TABLE dbo.DANHGIA;
-IF OBJECT_ID('dbo.THANHTOAN', 'U') IS NOT NULL DROP TABLE dbo.THANHTOAN;
-IF OBJECT_ID('dbo.CHITIETDONHANG', 'U') IS NOT NULL DROP TABLE dbo.CHITIETDONHANG;
-IF OBJECT_ID('dbo.DONHANG', 'U') IS NOT NULL DROP TABLE dbo.DONHANG;
-IF OBJECT_ID('dbo.VOUCHER', 'U') IS NOT NULL DROP TABLE dbo.VOUCHER;
-IF OBJECT_ID('dbo.CHITIETGIOHANG', 'U') IS NOT NULL DROP TABLE dbo.CHITIETGIOHANG;
-IF OBJECT_ID('dbo.GIOHANG', 'U') IS NOT NULL DROP TABLE dbo.GIOHANG;
-IF OBJECT_ID('dbo.TONKO', 'U') IS NOT NULL DROP TABLE dbo.TONKO;
-IF OBJECT_ID('dbo.TRONGKINH', 'U') IS NOT NULL DROP TABLE dbo.TRONGKINH;
-IF OBJECT_ID('dbo.KETQUADOMAT', 'U') IS NOT NULL DROP TABLE dbo.KETQUADOMAT;
-IF OBJECT_ID('dbo.ANHSP', 'U') IS NOT NULL DROP TABLE dbo.ANHSP;
-IF OBJECT_ID('dbo.CHITIETSANPHAM', 'U') IS NOT NULL DROP TABLE dbo.CHITIETSANPHAM;
-IF OBJECT_ID('dbo.SANPHAM', 'U') IS NOT NULL DROP TABLE dbo.SANPHAM;
-IF OBJECT_ID('dbo.THUONGHIEU', 'U') IS NOT NULL DROP TABLE dbo.THUONGHIEU;
-IF OBJECT_ID('dbo.KHACHHANG', 'U') IS NOT NULL DROP TABLE dbo.KHACHHANG;
-IF OBJECT_ID('dbo.NGUOIDUNG', 'U') IS NOT NULL DROP TABLE dbo.NGUOIDUNG;
-IF OBJECT_ID('dbo.VAITRO', 'U') IS NOT NULL DROP TABLE dbo.VAITRO;
-GO
+USE `db_kinh_mat`;
 
 -- 1. Bảng VAITRO
-CREATE TABLE [VAITRO] (
-    [maVaiTro] VARCHAR(20) NOT NULL,
-    [tenVaiTro] NVARCHAR(50) NOT NULL,
-    CONSTRAINT [PK_VAITRO] PRIMARY KEY ([maVaiTro])
-);
-GO
+DROP TABLE IF EXISTS `VAITRO`;
+CREATE TABLE `VAITRO` (
+  `maVaiTro` VARCHAR(20) NOT NULL,
+  `tenVaiTro` VARCHAR(50) NOT NULL,
+  PRIMARY KEY (`maVaiTro`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Bảng NGUOIDUNG
-CREATE TABLE [NGUOIDUNG] (
-    [maNguoiDung] VARCHAR(20) NOT NULL,
-    [hoTen] NVARCHAR(100) NOT NULL,
-    [email] VARCHAR(150) NOT NULL,
-    [matKhau] VARCHAR(255) NOT NULL,
-    [maVaiTro] VARCHAR(20) NOT NULL,
-    CONSTRAINT [PK_NGUOIDUNG] PRIMARY KEY ([maNguoiDung]),
-    CONSTRAINT [UK_NGUOIDUNG_email] UNIQUE ([email]),
-    CONSTRAINT [FK_NGUOIDUNG_VAITRO] FOREIGN KEY ([maVaiTro]) REFERENCES [VAITRO]([maVaiTro])
-);
-GO
+DROP TABLE IF EXISTS `NGUOIDUNG`;
+CREATE TABLE `NGUOIDUNG` (
+  `maNguoiDung` VARCHAR(20) NOT NULL,
+  `hoTen` VARCHAR(100) NOT NULL,
+  `email` VARCHAR(150) NOT NULL,
+  `matKhau` VARCHAR(255) NOT NULL,
+  `maVaiTro` VARCHAR(20) NOT NULL,
+  PRIMARY KEY (`maNguoiDung`),
+  UNIQUE KEY `uk_nguoidung_email` (`email`),
+  KEY `fk_nguoidung_vaitro` (`maVaiTro`),
+  CONSTRAINT `fk_nguoidung_vaitro` FOREIGN KEY (`maVaiTro`) REFERENCES `VAITRO` (`maVaiTro`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Bảng KHACHHANG
-CREATE TABLE [KHACHHANG] (
-    [maKhachHang] VARCHAR(20) NOT NULL,
-    [maNguoiDung] VARCHAR(20) NOT NULL,
-    [gioiTinh] NVARCHAR(10) NULL,
-    [ngaySinh] DATETIME NULL,
-    [soDienThoai] VARCHAR(20) NOT NULL,
-    [diaChi] NVARCHAR(255) NULL,
-    CONSTRAINT [PK_KHACHHANG] PRIMARY KEY ([maKhachHang]),
-    CONSTRAINT [UK_KHACHHANG_maNguoiDung] UNIQUE ([maNguoiDung]),
-    CONSTRAINT [FK_KHACHHANG_NGUOIDUNG] FOREIGN KEY ([maNguoiDung]) REFERENCES [NGUOIDUNG]([maNguoiDung])
-);
-GO
+DROP TABLE IF EXISTS `KHACHHANG`;
+CREATE TABLE `KHACHHANG` (
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `maNguoiDung` VARCHAR(20) NOT NULL,
+  `gioiTinh` VARCHAR(10) DEFAULT NULL,
+  `ngaySinh` DATETIME DEFAULT NULL,
+  `soDienThoai` VARCHAR(20) NOT NULL,
+  `diaChi` VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`maKhachHang`),
+  UNIQUE KEY `uk_khachhang_nguoidung` (`maNguoiDung`),
+  CONSTRAINT `fk_khachhang_nguoidung` FOREIGN KEY (`maNguoiDung`) REFERENCES `NGUOIDUNG` (`maNguoiDung`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Bảng THUONGHIEU (Đã thêm cột hinhAnh)
-CREATE TABLE [THUONGHIEU] (
-    [maThuongHieu] VARCHAR(20) NOT NULL,
-    [tenThuongHieu] NVARCHAR(100) NOT NULL,
-    [moTa] NVARCHAR(MAX) NULL,
-    [hinhAnh] VARCHAR(255) NULL,
-    CONSTRAINT [PK_THUONGHIEU] PRIMARY KEY ([maThuongHieu]),
-    CONSTRAINT [UK_THUONGHIEU_tenThuongHieu] UNIQUE ([tenThuongHieu])
-);
-GO
+-- 4. Bảng THUONGHIEU (Đã thêm cột logo)
+DROP TABLE IF EXISTS `THUONGHIEU`;
+CREATE TABLE `THUONGHIEU` (
+  `maThuongHieu` VARCHAR(20) NOT NULL,
+  `tenThuongHieu` VARCHAR(100) NOT NULL,
+  `moTa` TEXT DEFAULT NULL,
+  `logo` VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`maThuongHieu`),
+  UNIQUE KEY `uk_thuonghieu_ten` (`tenThuongHieu`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Bảng SANPHAM
-CREATE TABLE [SANPHAM] (
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [tenSanPham] NVARCHAR(200) NOT NULL,
-    [gia] DECIMAL(15, 2) NOT NULL,
-    [trangThai] NVARCHAR(30) NOT NULL,
-    [moTa] NVARCHAR(MAX) NULL,
-    [maThuongHieu] VARCHAR(20) NOT NULL,
-    CONSTRAINT [PK_SANPHAM] PRIMARY KEY ([maSanPham]),
-    CONSTRAINT [FK_SANPHAM_THUONGHIEU] FOREIGN KEY ([maThuongHieu]) REFERENCES [THUONGHIEU]([maThuongHieu])
-);
-GO
+DROP TABLE IF EXISTS `SANPHAM`;
+CREATE TABLE `SANPHAM` (
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `tenSanPham` VARCHAR(200) NOT NULL,
+  `gia` DECIMAL(15,2) NOT NULL,
+  `trangThai` VARCHAR(30) NOT NULL,
+  `moTa` TEXT DEFAULT NULL,
+  `maThuongHieu` VARCHAR(20) NOT NULL,
+  PRIMARY KEY (`maSanPham`),
+  KEY `fk_sanpham_thuonghieu` (`maThuongHieu`),
+  CONSTRAINT `fk_sanpham_thuonghieu` FOREIGN KEY (`maThuongHieu`) REFERENCES `THUONGHIEU` (`maThuongHieu`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Bảng ANHSP (Mới thêm)
-CREATE TABLE [ANHSP] (
-    [maAnh] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [hinhAnh] VARCHAR(255) NOT NULL,
-    [anhChinh] BIT NOT NULL DEFAULT 0,
-    CONSTRAINT [PK_ANHSP] PRIMARY KEY ([maAnh]),
-    CONSTRAINT [FK_ANHSP_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham]) ON DELETE CASCADE
-);
-GO
+-- 5.1. Bảng ANHSP
+DROP TABLE IF EXISTS `ANHSP`;
+CREATE TABLE `ANHSP` (
+  `maAnh` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `hinhAnh` VARCHAR(255) NOT NULL,
+  `anhChinh` TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`maAnh`),
+  KEY `fk_anhsp_sanpham` (`maSanPham`),
+  CONSTRAINT `fk_anhsp_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Bảng CHITIETSANPHAM
-CREATE TABLE [CHITIETSANPHAM] (
-    [maCTSanPham] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [kichThuoc] NVARCHAR(50) NULL,
-    [chieuRongKhung] FLOAT NULL,
-    [chieuRongCau] FLOAT NULL,
-    [chieuRongThauKinh] FLOAT NULL,
-    [chieuCaoOngKinh] FLOAT NULL,
-    [chieuDaiThaiDuong] FLOAT NULL,
-    [mauSac] NVARCHAR(50) NOT NULL,
-    [gioiTinh] NVARCHAR(20) NULL,
-    [vatLieu] NVARCHAR(50) NULL,
-    [moTa] NVARCHAR(MAX) NULL,
-    CONSTRAINT [PK_CHITIETSANPHAM] PRIMARY KEY ([maCTSanPham]),
-    CONSTRAINT [UK_CHITIETSANPHAM_maSanPham] UNIQUE ([maSanPham]),
-    CONSTRAINT [FK_CHITIETSANPHAM_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham])
-);
-GO
+-- 6. Bảng CHITIETSANPHAM
+DROP TABLE IF EXISTS `CHITIETSANPHAM`;
+CREATE TABLE `CHITIETSANPHAM` (
+  `maCTSanPham` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `kichThuoc` VARCHAR(50) DEFAULT NULL,
+  `chieuRongKhung` FLOAT DEFAULT NULL,
+  `chieuRongCau` FLOAT DEFAULT NULL,
+  `chieuRongThauKinh` FLOAT DEFAULT NULL,
+  `chieuCaoOngKinh` FLOAT DEFAULT NULL,
+  `chieuDaiThaiDuong` FLOAT DEFAULT NULL,
+  `mauSac` VARCHAR(50) NOT NULL,
+  `gioiTinh` VARCHAR(20) DEFAULT NULL,
+  `vatLieu` VARCHAR(50) DEFAULT NULL,
+  `moTa` TEXT DEFAULT NULL,
+  PRIMARY KEY (`maCTSanPham`),
+  UNIQUE KEY `uk_ctsanpham_sanpham` (`maSanPham`),
+  CONSTRAINT `fk_ctsanpham_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Bảng KETQUADOMAT
-CREATE TABLE [KETQUADOMAT] (
-    [maKetQuaDo] VARCHAR(20) NOT NULL,
-    [maKhachHang] VARCHAR(20) NOT NULL,
-    [ngayDo] DATETIME NOT NULL DEFAULT GETDATE(),
-    [ketQua] NVARCHAR(MAX) NOT NULL,
-    CONSTRAINT [PK_KETQUADOMAT] PRIMARY KEY ([maKetQuaDo]),
-    CONSTRAINT [FK_KETQUADOMAT_KHACHHANG] FOREIGN KEY ([maKhachHang]) REFERENCES [KHACHHANG]([maKhachHang])
-);
-GO
+-- 7. Bảng KETQUADOMAT
+DROP TABLE IF EXISTS `KETQUADOMAT`;
+CREATE TABLE `KETQUADOMAT` (
+  `maKetQuaDo` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `ngayDo` DATETIME NOT NULL,
+  `ketQua` TEXT NOT NULL,
+  PRIMARY KEY (`maKetQuaDo`),
+  KEY `fk_ketquadomat_khachhang` (`maKhachHang`),
+  CONSTRAINT `fk_ketquadomat_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Bảng TRONGKINH
-CREATE TABLE [TRONGKINH] (
-    [maTrongKinh] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NULL,
-    [maKetQuaDo] VARCHAR(20) NULL,
-    [loai] NVARCHAR(50) NOT NULL,
-    [chietSuat] FLOAT NOT NULL,
-    [tinhNang] NVARCHAR(200) NULL,
-    [gia] DECIMAL(15, 2) NOT NULL,
-    [vatLieu] NVARCHAR(100) NULL,
-    CONSTRAINT [PK_TRONGKINH] PRIMARY KEY ([maTrongKinh]),
-    CONSTRAINT [FK_TRONGKINH_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham]),
-    CONSTRAINT [FK_TRONGKINH_KETQUADOMAT] FOREIGN KEY ([maKetQuaDo]) REFERENCES [KETQUADOMAT]([maKetQuaDo])
-);
-GO
+-- 8. Bảng TRONGKINH
+DROP TABLE IF EXISTS `TRONGKINH`;
+CREATE TABLE `TRONGKINH` (
+  `maTrongKinh` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) DEFAULT NULL,
+  `maKetQuaDo` VARCHAR(20) DEFAULT NULL,
+  `loai` VARCHAR(50) NOT NULL,
+  `chietSuat` FLOAT NOT NULL,
+  `tinhNang` VARCHAR(200) DEFAULT NULL,
+  `gia` DECIMAL(15,2) NOT NULL,
+  `vatLieu` VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`maTrongKinh`),
+  KEY `fk_trongkinh_sanpham` (`maSanPham`),
+  KEY `fk_trongkinh_ketquado` (`maKetQuaDo`),
+  CONSTRAINT `fk_trongkinh_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_trongkinh_ketquado` FOREIGN KEY (`maKetQuaDo`) REFERENCES `KETQUADOMAT` (`maKetQuaDo`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Bảng TONKO
-CREATE TABLE [TONKO] (
-    [maTonKho] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [maTrongKinh] VARCHAR(20) NULL,
-    [soLuong] INT NOT NULL DEFAULT 0,
-    [soLuongDat] INT NOT NULL DEFAULT 0,
-    [ngayCapNhat] DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_TONKO] PRIMARY KEY ([maTonKho]),
-    CONSTRAINT [FK_TONKO_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham]),
-    CONSTRAINT [FK_TONKO_TRONGKINH] FOREIGN KEY ([maTrongKinh]) REFERENCES [TRONGKINH]([maTrongKinh])
-);
-GO
+-- 9. Bảng TONKO
+DROP TABLE IF EXISTS `TONKO`;
+CREATE TABLE `TONKO` (
+  `maTonKho` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `maTrongKinh` VARCHAR(20) DEFAULT NULL,
+  `soLuong` INT NOT NULL DEFAULT 0,
+  `soLuongDat` INT NOT NULL DEFAULT 0,
+  `ngayCapNhat` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`maTonKho`),
+  KEY `fk_tonko_sanpham` (`maSanPham`),
+  KEY `fk_tonko_trongkinh` (`maTrongKinh`),
+  CONSTRAINT `fk_tonko_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_tonko_trongkinh` FOREIGN KEY (`maTrongKinh`) REFERENCES `TRONGKINH` (`maTrongKinh`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. Bảng GIOHANG
-CREATE TABLE [GIOHANG] (
-    [maGioHang] VARCHAR(20) NOT NULL,
-    [maKhachHang] VARCHAR(20) NOT NULL,
-    [ngayTao] DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_GIOHANG] PRIMARY KEY ([maGioHang]),
-    CONSTRAINT [UK_GIOHANG_maKhachHang] UNIQUE ([maKhachHang]),
-    CONSTRAINT [FK_GIOHANG_KHACHHANG] FOREIGN KEY ([maKhachHang]) REFERENCES [KHACHHANG]([maKhachHang])
-);
-GO
+-- 10. Bảng GIOHANG
+DROP TABLE IF EXISTS `GIOHANG`;
+CREATE TABLE `GIOHANG` (
+  `maGioHang` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `ngayTao` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`maGioHang`),
+  UNIQUE KEY `uk_giohang_khachhang` (`maKhachHang`),
+  CONSTRAINT `fk_giohang_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. Bảng CHITIETGIOHANG
-CREATE TABLE [CHITIETGIOHANG] (
-    [maCTGioHang] VARCHAR(20) NOT NULL,
-    [maGioHang] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [soLuong] INT NOT NULL DEFAULT 1,
-    CONSTRAINT [PK_CHITIETGIOHANG] PRIMARY KEY ([maCTGioHang]),
-    CONSTRAINT [FK_CHITIETGIOHANG_GIOHANG] FOREIGN KEY ([maGioHang]) REFERENCES [GIOHANG]([maGioHang]),
-    CONSTRAINT [FK_CHITIETGIOHANG_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham])
-);
-GO
+-- 11. Bảng CHITIETGIOHANG
+DROP TABLE IF EXISTS `CHITIETGIOHANG`;
+CREATE TABLE `CHITIETGIOHANG` (
+  `maCTGioHang` VARCHAR(20) NOT NULL,
+  `maGioHang` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `soLuong` INT NOT NULL DEFAULT 1,
+  PRIMARY KEY (`maCTGioHang`),
+  KEY `fk_ctgiohang_giohang` (`maGioHang`),
+  KEY `fk_ctgiohang_sanpham` (`maSanPham`),
+  CONSTRAINT `fk_ctgiohang_giohang` FOREIGN KEY (`maGioHang`) REFERENCES `GIOHANG` (`maGioHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_ctgiohang_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. Bảng VOUCHER
-CREATE TABLE [VOUCHER] (
-    [maVoucher] VARCHAR(20) NOT NULL,
-    [code] VARCHAR(50) NOT NULL,
-    [loaiGiam] NVARCHAR(20) NOT NULL,
-    [giaTriGiam] FLOAT NOT NULL,
-    [donHangToiThieu] DECIMAL(15, 2) NULL DEFAULT 0,
-    [gioiHanDung] INT NULL,
-    [daDung] INT NOT NULL DEFAULT 0,
-    [ngayHetHan] DATETIME NOT NULL,
-    CONSTRAINT [PK_VOUCHER] PRIMARY KEY ([maVoucher]),
-    CONSTRAINT [UK_VOUCHER_code] UNIQUE ([code])
-);
-GO
+-- 12. Bảng VOUCHER
+DROP TABLE IF EXISTS `VOUCHER`;
+CREATE TABLE `VOUCHER` (
+  `maVoucher` VARCHAR(20) NOT NULL,
+  `code` VARCHAR(50) NOT NULL,
+  `loaiGiam` VARCHAR(20) NOT NULL,
+  `giaTriGiam` FLOAT NOT NULL,
+  `donHangToiThieu` DECIMAL(15,2) DEFAULT 0.00,
+  `gioiHanDung` INT DEFAULT NULL,
+  `daDung` INT NOT NULL DEFAULT 0,
+  `ngayHetHan` DATETIME NOT NULL,
+  PRIMARY KEY (`maVoucher`),
+  UNIQUE KEY `uk_voucher_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 14. Bảng DONHANG
-CREATE TABLE [DONHANG] (
-    [maDonHang] VARCHAR(20) NOT NULL,
-    [maKhachHang] VARCHAR(20) NULL,
-    [maVoucher] VARCHAR(20) NULL,
-    [ngayDat] DATETIME NOT NULL DEFAULT GETDATE(),
-    [tongTien] DECIMAL(15, 2) NOT NULL DEFAULT 0,
-    [tenNN] NVARCHAR(100) NOT NULL,
-    [soDienThoai] VARCHAR(20) NOT NULL,
-    [diaChi] NVARCHAR(255) NOT NULL,
-    CONSTRAINT [PK_DONHANG] PRIMARY KEY ([maDonHang]),
-    CONSTRAINT [FK_DONHANG_KHACHHANG] FOREIGN KEY ([maKhachHang]) REFERENCES [KHACHHANG]([maKhachHang]),
-    CONSTRAINT [FK_DONHANG_VOUCHER] FOREIGN KEY ([maVoucher]) REFERENCES [VOUCHER]([maVoucher])
-);
-GO
+-- 13. Bảng DONHANG
+DROP TABLE IF EXISTS `DONHANG`;
+CREATE TABLE `DONHANG` (
+  `maDonHang` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) DEFAULT NULL,
+  `maVoucher` VARCHAR(20) DEFAULT NULL,
+  `ngayDat` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `tongTien` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  `tenNN` VARCHAR(100) NOT NULL,
+  `soDienThoai` VARCHAR(20) NOT NULL,
+  `diaChi` VARCHAR(255) NOT NULL,
+  PRIMARY KEY (`maDonHang`),
+  KEY `fk_donhang_khachhang` (`maKhachHang`),
+  KEY `fk_donhang_voucher` (`maVoucher`),
+  CONSTRAINT `fk_donhang_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_donhang_voucher` FOREIGN KEY (`maVoucher`) REFERENCES `VOUCHER` (`maVoucher`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 15. Bảng CHITIETDONHANG
-CREATE TABLE [CHITIETDONHANG] (
-    [maCTDDonHang] VARCHAR(20) NOT NULL,
-    [maDonHang] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [maTrongKinh] VARCHAR(20) NULL,
-    [donGia] DECIMAL(15, 2) NOT NULL,
-    CONSTRAINT [PK_CHITIETDONHANG] PRIMARY KEY ([maCTDDonHang]),
-    CONSTRAINT [FK_CHITIETDONHANG_DONHANG] FOREIGN KEY ([maDonHang]) REFERENCES [DONHANG]([maDonHang]),
-    CONSTRAINT [FK_CHITIETDONHANG_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham]),
-    CONSTRAINT [FK_CHITIETDONHANG_TRONGKINH] FOREIGN KEY ([maTrongKinh]) REFERENCES [TRONGKINH]([maTrongKinh])
-);
-GO
+-- 14. Bảng CHITIETDONHANG
+DROP TABLE IF EXISTS `CHITIETDONHANG`;
+CREATE TABLE `CHITIETDONHANG` (
+  `maCTDDonHang` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `maTrongKinh` VARCHAR(20) DEFAULT NULL,
+  `donGia` DECIMAL(15,2) NOT NULL,
+  PRIMARY KEY (`maCTDDonHang`),
+  KEY `fk_ctdonhang_donhang` (`maDonHang`),
+  KEY `fk_ctdonhang_sanpham` (`maSanPham`),
+  KEY `fk_ctdonhang_trongkinh` (`maTrongKinh`),
+  CONSTRAINT `fk_ctdonhang_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_ctdonhang_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_ctdonhang_trongkinh` FOREIGN KEY (`maTrongKinh`) REFERENCES `TRONGKINH` (`maTrongKinh`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 16. Bảng THANHTOAN
-CREATE TABLE [THANHTOAN] (
-    [maThanhToan] VARCHAR(20) NOT NULL,
-    [maDonHang] VARCHAR(20) NOT NULL,
-    [phuongThuc] NVARCHAR(50) NOT NULL,
-    [trangThai] NVARCHAR(50) NOT NULL,
-    [soTien] DECIMAL(15, 2) NOT NULL,
-    CONSTRAINT [PK_THANHTOAN] PRIMARY KEY ([maThanhToan]),
-    CONSTRAINT [UK_THANHTOAN_maDonHang] UNIQUE ([maDonHang]),
-    CONSTRAINT [FK_THANHTOAN_DONHANG] FOREIGN KEY ([maDonHang]) REFERENCES [DONHANG]([maDonHang])
-);
-GO
+-- 15. Bảng THANHTOAN
+DROP TABLE IF EXISTS `THANHTOAN`;
+CREATE TABLE `THANHTOAN` (
+  `maThanhToan` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) NOT NULL,
+  `phuongThuc` VARCHAR(50) NOT NULL,
+  `trangThai` VARCHAR(50) NOT NULL,
+  `soTien` DECIMAL(15,2) NOT NULL,
+  PRIMARY KEY (`maThanhToan`),
+  UNIQUE KEY `uk_thanhtoan_donhang` (`maDonHang`),
+  CONSTRAINT `fk_thanhtoan_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 17. Bảng DANHGIA
-CREATE TABLE [DANHGIA] (
-    [maDanhGia] VARCHAR(20) NOT NULL,
-    [maSanPham] VARCHAR(20) NOT NULL,
-    [maKhachHang] VARCHAR(20) NOT NULL,
-    [sao] INT NOT NULL,
-    [binhLuan] NVARCHAR(MAX) NULL,
-    CONSTRAINT [PK_DANHGIA] PRIMARY KEY ([maDanhGia]),
-    CONSTRAINT [FK_DANHGIA_SANPHAM] FOREIGN KEY ([maSanPham]) REFERENCES [SANPHAM]([maSanPham]),
-    CONSTRAINT [FK_DANHGIA_KHACHHANG] FOREIGN KEY ([maKhachHang]) REFERENCES [KHACHHANG]([maKhachHang]),
-    CONSTRAINT [CHK_DANHGIA_sao] CHECK ([sao] >= 1 AND [sao] <= 5)
-);
-GO
+-- 16. Bảng DANHGIA
+DROP TABLE IF EXISTS `DANHGIA`;
+CREATE TABLE `DANHGIA` (
+  `maDanhGia` VARCHAR(20) NOT NULL,
+  `maSanPham` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `sao` INT NOT NULL,
+  `binhLuan` TEXT DEFAULT NULL,
+  PRIMARY KEY (`maDanhGia`),
+  KEY `fk_danhgia_sanpham` (`maSanPham`),
+  KEY `fk_danhgia_khachhang` (`maKhachHang`),
+  CONSTRAINT `fk_danhgia_sanpham` FOREIGN KEY (`maSanPham`) REFERENCES `SANPHAM` (`maSanPham`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_danhgia_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `chk_danhgia_sao` CHECK (`sao` >= 1 AND `sao` <= 5)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 18. Bảng LICHSUVOUCHER
-CREATE TABLE [LICHSUVOUCHER] (
-    [maLichSu] VARCHAR(20) NOT NULL,
-    [maVoucher] VARCHAR(20) NOT NULL,
-    [maDonHang] VARCHAR(20) NOT NULL,
-    [ngayDung] DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_LICHSUVOUCHER] PRIMARY KEY ([maLichSu]),
-    CONSTRAINT [FK_LICHSUVOUCHER_VOUCHER] FOREIGN KEY ([maVoucher]) REFERENCES [VOUCHER]([maVoucher]),
-    CONSTRAINT [FK_LICHSUVOUCHER_DONHANG] FOREIGN KEY ([maDonHang]) REFERENCES [DONHANG]([maDonHang])
-);
-GO
+-- 17. Bảng LICHSUVOUCHER
+DROP TABLE IF EXISTS `LICHSUVOUCHER`;
+CREATE TABLE `LICHSUVOUCHER` (
+  `maLichSu` VARCHAR(20) NOT NULL,
+  `maVoucher` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) NOT NULL,
+  `ngayDung` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`maLichSu`),
+  KEY `fk_lichsuvoucher_voucher` (`maVoucher`),
+  KEY `fk_lichsuvoucher_donhang` (`maDonHang`),
+  CONSTRAINT `fk_lichsuvoucher_voucher` FOREIGN KEY (`maVoucher`) REFERENCES `VOUCHER` (`maVoucher`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_lichsuvoucher_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- NẠP SẴN VAI TRÒ & 4 ACCOUNT
-INSERT INTO [VAITRO] ([maVaiTro], [tenVaiTro]) VALUES
-('VT01', N'Admin'),
-('VT02', N'NhanVien'),
-('VT03', N'KhachHang');
-GO
+-- 18. Bảng KHIEUNAI
+DROP TABLE IF EXISTS `KHIEUNAI`;
+CREATE TABLE `KHIEUNAI` (
+  `maKhieuNai` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) DEFAULT NULL,
+  `loaiKhieuNai` VARCHAR(50) NOT NULL COMMENT 'đơn hàng / thanh toán / sản phẩm',
+  `tieuDe` VARCHAR(255) NOT NULL,
+  `noiDung` TEXT NOT NULL,
+  `hinhAnh` VARCHAR(255) DEFAULT NULL,
+  `ngayTao` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `trangThai` VARCHAR(50) NOT NULL DEFAULT 'Chờ xử lý',
+  `phanHoi` TEXT DEFAULT NULL,
+  PRIMARY KEY (`maKhieuNai`),
+  KEY `fk_khieunai_khachhang` (`maKhachHang`),
+  KEY `fk_khieunai_donhang` (`maDonHang`),
+  CONSTRAINT `fk_khieunai_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_khieunai_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO [NGUOIDUNG] ([maNguoiDung], [hoTen], [email], [matKhau], [maVaiTro]) VALUES
-('ND01', N'Quản Trị Viên', 'admin@kinhmat.vn', '202cb962ac59075b964b07152d234b70', 'VT01'),
-('ND02', N'Nhân Viên', 'nhanvien@kinhmat.vn', '202cb962ac59075b964b07152d234b70', 'VT02'),
-('ND03', N'Nguyễn Văn An', 'nguyenvanan@gmail.com', '202cb962ac59075b964b07152d234b70', 'VT03'),
-('ND04', N'Bích Ngọc', 'bichngoc@gmail.com', '202cb962ac59075b964b07152d234b70', 'VT03');
-GO
+-- ============================================================================
+-- NẠP SẴN VAI TRÒ, TÀI KHOẢN & DỮ LIỆU MẪU KHIẾU NẠI (Pass: 123)
+-- ============================================================================
 
-INSERT INTO [KHACHHANG] ([maKhachHang], [maNguoiDung], [gioiTinh], [ngaySinh], [soDienThoai], [diaChi]) VALUES
-('KH01', 'ND03', N'Nam', '2002-05-15', '0901234567', N'TP. Hồ Chí Minh'),
-('KH02', 'ND04', N'Nữ', '2003-10-20', '0912345678', N'TP. Hồ Chí Minh');
-GO
+INSERT INTO `VAITRO` (`maVaiTro`, `tenVaiTro`) VALUES
+('VT01', 'Admin'),
+('VT02', 'NhanVien'),
+('VT03', 'KhachHang');
+
+INSERT INTO `NGUOIDUNG` (`maNguoiDung`, `hoTen`, `email`, `matKhau`, `maVaiTro`) VALUES
+('ND01', 'Quản Trị Viên', 'admin@kinhmat.vn', '202cb962ac59075b964b07152d234b70', 'VT01'),
+('ND02', 'Nhân Viên', 'nhanvien@kinhmat.vn', '202cb962ac59075b964b07152d234b70', 'VT02'),
+('ND03', 'Nguyễn Văn An', 'nguyenvanan@gmail.com', '202cb962ac59075b964b07152d234b70', 'VT03'),
+('ND04', 'Bích Ngọc', 'bichngoc@gmail.com', '202cb962ac59075b964b07152d234b70', 'VT03');
+
+INSERT INTO `KHACHHANG` (`maKhachHang`, `maNguoiDung`, `gioiTinh`, `ngaySinh`, `soDienThoai`, `diaChi`) VALUES
+('KH01', 'ND03', 'Nam', '2002-05-15 00:00:00', '0901234567', 'TP. Hồ Chí Minh'),
+('KH02', 'ND04', 'Nữ', '2003-10-20 00:00:00', '0912345678', 'TP. Hồ Chí Minh');
+
+INSERT INTO `KHIEUNAI` (`maKhieuNai`, `maKhachHang`, `maDonHang`, `loaiKhieuNai`, `tieuDe`, `noiDung`, `hinhAnh`, `trangThai`, `phanHoi`) VALUES
+('KN01', 'KH01', NULL, 'sản phẩm', 'Gọng kính bị lỏng ốc bản lề', 'Mình mới nhận kính nhưng phần bản lề bên trái hơi lỏng, nhờ shop hỗ trợ.', 'kn01_banle.jpg', 'Chờ xử lý', NULL),
+('KN02', 'KH02', NULL, 'thanh toán', 'Chưa nhận được xác nhận chuyển khoản', 'Mình đã chuyển khoản thanh toán nhưng trạng thái vẫn chưa cập nhật.', 'kn02_bill.jpg', 'Đã phản hồi', 'Cửa hàng đã kiểm tra và xác nhận thanh toán thành công cho bạn.');
+
+SET FOREIGN_KEY_CHECKS = 1;

@@ -264,6 +264,26 @@ CREATE TABLE `LICHSUVOUCHER` (
   CONSTRAINT `fk_lichsuvoucher_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 18. Bảng KHIEUNAI
+DROP TABLE IF EXISTS `KHIEUNAI`;
+CREATE TABLE `KHIEUNAI` (
+  `maKhieuNai` VARCHAR(20) NOT NULL,
+  `maKhachHang` VARCHAR(20) NOT NULL,
+  `maDonHang` VARCHAR(20) DEFAULT NULL,
+  `loaiKhieuNai` VARCHAR(50) NOT NULL COMMENT 'đơn hàng / thanh toán / sản phẩm',
+  `tieuDe` VARCHAR(255) NOT NULL,
+  `noiDung` TEXT NOT NULL,
+  `hinhAnh` VARCHAR(255) DEFAULT NULL,
+  `ngayTao` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `trangThai` VARCHAR(50) NOT NULL DEFAULT 'Chờ xử lý',
+  `phanHoi` TEXT DEFAULT NULL,
+  PRIMARY KEY (`maKhieuNai`),
+  KEY `fk_khieunai_khachhang` (`maKhachHang`),
+  KEY `fk_khieunai_donhang` (`maDonHang`),
+  CONSTRAINT `fk_khieunai_khachhang` FOREIGN KEY (`maKhachHang`) REFERENCES `KHACHHANG` (`maKhachHang`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_khieunai_donhang` FOREIGN KEY (`maDonHang`) REFERENCES `DONHANG` (`maDonHang`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
 -- NẠP SẴN VAI TRÒ & 4 ACCOUNT (Pass: 123 -> MD5: 202cb962ac59075b964b07152d234b70)
 -- ============================================================================

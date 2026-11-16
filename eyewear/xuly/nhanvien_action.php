@@ -18,16 +18,14 @@ if ($action === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $check = $conn->prepare("SELECT COUNT(*) FROM NGUOIDUNG WHERE email = ?");
         $check->execute([$email]);
         if ($check->fetchColumn() > 0) {
-            $_SESSION['err'] = "Email [$email] đã được sử dụng bởi tài khoản khác!";
+            $_SESSION['err'] = "Email [$email] đã được sử dụng!";
             header("Location: ../index.php?tab=admin-staff");
             exit;
         }
 
         $maND = taoMaTuDong($conn, 'NGUOIDUNG', 'maNguoiDung', 'ND');
-        $matKhauMaHoa = md5($matKhau);
-
-        $sql = "INSERT INTO NGUOIDUNG (maNguoiDung, hoTen, email, matKhau, maVaiTro) VALUES (?, ?, ?, ?, 'VT02')";
-        $conn->prepare($sql)->execute([$maND, $hoTen, $email, $matKhauMaHoa]);
+        $conn->prepare("INSERT INTO NGUOIDUNG (maNguoiDung, hoTen, email, matKhau, maVaiTro) VALUES (?, ?, ?, ?, 'VT02')")
+             ->execute([$maND, $hoTen, $email, md5($matKhau)]);
 
         $_SESSION['msg'] = "Thêm nhân viên [$hoTen] thành công!";
     } catch (PDOException $e) {
@@ -45,12 +43,11 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if (!empty($matKhauNew)) {
-            $matKhauMaHoa = md5($matKhauNew);
-            $sql = "UPDATE NGUOIDUNG SET hoTen = ?, email = ?, matKhau = ? WHERE maNguoiDung = ?";
-            $conn->prepare($sql)->execute([$hoTen, $email, $matKhauMaHoa, $maND]);
+            $conn->prepare("UPDATE NGUOIDUNG SET hoTen = ?, email = ?, matKhau = ? WHERE maNguoiDung = ?")
+                 ->execute([$hoTen, $email, md5($matKhauNew), $maND]);
         } else {
-            $sql = "UPDATE NGUOIDUNG SET hoTen = ?, email = ? WHERE maNguoiDung = ?";
-            $conn->prepare($sql)->execute([$hoTen, $email, $maND]);
+            $conn->prepare("UPDATE NGUOIDUNG SET hoTen = ?, email = ? WHERE maNguoiDung = ?")
+                 ->execute([$hoTen, $email, $maND]);
         }
         $_SESSION['msg'] = "Cập nhật nhân viên [$maND] thành công!";
     } catch (PDOException $e) {
@@ -62,9 +59,8 @@ if ($action === 'edit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($action === 'delete') {
     $maND = $_GET['id'] ?? '';
-
     if ($maND === $_SESSION['user']['maNguoiDung']) {
-        $_SESSION['err'] = "Bạn không thể tự xóa tài khoản quản trị tối cao của chính mình!";
+        $_SESSION['err'] = "Bạn không thể tự xóa tài khoản quản trị của chính mình!";
         header("Location: ../index.php?tab=admin-staff");
         exit;
     }
