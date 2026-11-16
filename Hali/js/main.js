@@ -18,18 +18,65 @@ function toggleMobileMenu() {
     }
 }
 
-// 2. Đóng / Mở Modal bất kỳ
+// 2. Đóng / Mở Modal bất kỳ & Tự động focus vào ô input đầu tiên để bấm Tab mượt mà
 function openModal(modalId) {
-    document.getElementById(modalId).classList.add('open');
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add('open');
+    setTimeout(() => {
+        const firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
+        if (firstInput) firstInput.focus();
+    }, 60);
 }
+
 function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('open');
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('open');
 }
 
 function switchAuthModal(fromModalId, toModalId) {
     closeModal(fromModalId);
     openModal(toModalId);
 }
+
+// Hỗ trợ bấm phím Tab trong ô input có data-suggest:
+// Nếu người dùng gõ vài ký tự đầu (VD: "ad", "nh", "ng") rồi bấm phím Tab, tự động điền nốt gợi ý email và nhảy xuống ô Mật khẩu!
+document.addEventListener('DOMContentLoaded', () => {
+    const loginEmailInput = document.getElementById('loginEmail');
+    const suggestHint = document.getElementById('emailSuggestHint');
+    const emailSuggestions = [
+        'nguyenvanan@gmail.com',
+        'bichngoc@gmail.com',
+        'nhanvien@kinhmat.vn',
+        'admin@kinhmat.vn'
+    ];
+
+    if (loginEmailInput) {
+        loginEmailInput.addEventListener('input', function() {
+            const val = this.value.trim().toLowerCase();
+            if (val.length >= 2) {
+                const match = emailSuggestions.find(item => item.startsWith(val) && item !== val);
+                if (match && suggestHint) {
+                    suggestHint.style.display = 'block';
+                    suggestHint.innerHTML = 'Gợi ý: <strong>' + match + '</strong> (Nhấn phím <b>Tab</b> để điền nhanh)';
+                    this.dataset.matchedEmail = match;
+                    return;
+                }
+            }
+            if (suggestHint) suggestHint.style.display = 'none';
+            this.dataset.matchedEmail = '';
+        });
+
+        loginEmailInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab' && !e.shiftKey && this.dataset.matchedEmail) {
+                // Tự động lấy gợi ý điền vào ô Email và vẫn cho phép con trỏ nhảy sang ô Mật khẩu
+                this.value = this.dataset.matchedEmail;
+                this.dataset.matchedEmail = '';
+                if (suggestHint) suggestHint.style.display = 'none';
+            }
+        });
+    }
+});
 
 // 3. Mở Modal Thêm / Sửa Thương Hiệu
 function openBrandModal(mode, data = null) {
@@ -47,13 +94,22 @@ function openBrandModal(mode, data = null) {
     openModal('brandModal');
 }
 
-// 4. Mở Modal Thêm / Sửa Sản Phẩm
+// 4. Mở Modal Thêm / Sửa Sản Phẩm (Hỗ trợ hiển thị & quản lý NHIỀU ẢNH)
 function openProductModal(mode, data = null) {
     document.getElementById('productFormAction').value = mode;
+    const existingBox = document.getElementById('existingImagesSection');
+    const existingList = document.getElementById('existingImagesList');
+    const uploadModeBox = document.getElementById('uploadModeSection');
+    const previewContainer = document.getElementById('newImagesPreview');
+
+    if (previewContainer) previewContainer.innerHTML = '';
+
     if (mode === 'add') {
         document.getElementById('productModalTitle').innerText = 'Thêm Sản Phẩm Gọng Kính Mới';
         document.getElementById('productForm').reset();
         document.getElementById('maSanPham').value = '';
+        if (existingBox) existingBox.style.display = 'none';
+        if (uploadModeBox) uploadModeBox.style.display = 'none';
     } else {
         document.getElementById('productModalTitle').innerText = 'Sửa Sản Phẩm: ' + data.maSanPham;
         document.getElementById('maSanPham').value = data.maSanPham;
@@ -72,8 +128,70 @@ function openProductModal(mode, data = null) {
         document.getElementById('chieuCaoOngKinh').value = data.chieuCaoOngKinh || '';
         document.getElementById('chieuDaiThaiDuong').value = data.chieuDaiThaiDuong || '';
         document.getElementById('moTaSP').value = data.moTa || '';
+
+        if (uploadModeBox) uploadModeBox.style.display = 'block';
+
+        // Hiển thị danh sách các ảnh đang có của sản phẩm
+        if (existingBox && existingList) {
+            existingList.innerHTML = '';
+            if (data.dsAnh && data.dsAnh.length > 0) {
+                existingBox.style.display = 'block';
+                data.dsAnh.forEach(img => {
+                    const isMain = parseInt(img.anhChinh) === 1;
+                    const div = document.createElement('div');
+                    div.className = 'existing-img-item' + (isMain ? ' is-main' : '');
+                    div.innerHTML = `
+                        <img src="images/anh_sp/${img.hinhAnh}" alt="">
+                        <div style="font-size:10px; font-weight:700; color:${isMain ? '#0f172a' : '#64748b'}; margin-bottom:4px;">
+                            ${isMain ? '★ Ảnh chính' : 'Ảnh phụ'}
+                        </div>
+                        <div class="existing-img-actions">
+                            ${!isMain ? `<a href="xuly/sanpham_action.php?action=set_main_img&maAnh=${img.maAnh}&maSP=${data.maSanPham}" style="background:#e2e8f0; color:#0f172a;" title="Đặt làm ảnh chính">Đặt chính</a>` : ''}
+                            <a href="xuly/sanpham_action.php?action=delete_img&maAnh=${img.maAnh}&maSP=${data.maSanPham}" style="background:#fee2e2; color:#991b1b;" onclick="return confirm('Xóa ảnh này?')">Xóa</a>
+                        </div>
+                    `;
+                    existingList.appendChild(div);
+                });
+            } else {
+                existingBox.style.display = 'none';
+            }
+        }
     }
     openModal('productModal');
+}
+
+// Xem trước nhiều ảnh ngay khi chọn file từ máy tính
+function previewMultipleImages(input) {
+    const previewContainer = document.getElementById('newImagesPreview');
+    if (!previewContainer) return;
+    previewContainer.innerHTML = '';
+
+    if (input.files && input.files.length > 0) {
+        Array.from(input.files).forEach((file, idx) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'existing-img-item' + (idx === 0 ? ' is-main' : '');
+                div.innerHTML = `
+                    <img src="${e.target.result}" alt="">
+                    <span style="font-size:10px; color:#475569;">Ảnh mới #${idx + 1}</span>
+                `;
+                previewContainer.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+}
+
+// Đổi ảnh hiển thị trên thẻ sản phẩm khi khách bấm vào ảnh thu nhỏ (thumbnail)
+function changeProductCardImage(maSP, imgSrc, thumbEl) {
+    const mainImg = document.getElementById('main-img-' + maSP);
+    if (mainImg) {
+        mainImg.src = imgSrc;
+    }
+    const parentThumbs = thumbEl.parentElement.querySelectorAll('.product-thumb-item');
+    parentThumbs.forEach(t => t.classList.remove('active-thumb'));
+    thumbEl.classList.add('active-thumb');
 }
 
 // 5. Mở Modal Thêm / Sửa Nhân Viên
@@ -111,7 +229,6 @@ function openVoucherModal(mode, data = null) {
         document.getElementById('donHangToiThieu').value = data.donHangToiThieu;
         document.getElementById('gioiHanDung').value = data.gioiHanDung !== null ? data.gioiHanDung : '';
         if (data.ngayHetHan) {
-            // Chuyển YYYY-MM-DD HH:MM:SS sang định dạng datetime-local YYYY-MM-DDTHH:MM
             document.getElementById('ngayHetHan').value = data.ngayHetHan.replace(' ', 'T').slice(0, 16);
         }
     }
@@ -137,7 +254,6 @@ function openLensWizard(maSP, tenSP, giaGong) {
     const vcMsg = document.getElementById('wizardVoucherMsg');
     if (vcMsg) vcMsg.innerText = '';
 
-    // Đặt mặc định chọn tròng đầu tiên (350.000đ)
     document.querySelectorAll('#step3 .option-box').forEach((box, idx) => {
         box.classList.toggle('selected', idx === 0);
     });
@@ -161,7 +277,6 @@ function selectLensOption(price, el) {
     currentLensPrice = parseFloat(price);
     document.querySelectorAll('#step3 .option-box').forEach(box => box.classList.remove('selected'));
     el.classList.add('selected');
-    // Nếu đã áp mã voucher, tính lại hoặc reset nếu thay đổi tổng tiền
     if (appliedVoucherCode !== '') {
         applyVoucherInWizard();
     } else {

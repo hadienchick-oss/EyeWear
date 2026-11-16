@@ -19,10 +19,10 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 </head>
 <body>
 
-    <!-- THANH ĐIỀU HƯỚNG TỰ ĐỘNG HIỂN THỊ MENU QUẢN TRỊ KHI ĐĂNG NHẬP -->
+    <!-- THANH ĐIỀU HƯỚNG CHUẨN KHÔNG VỠ NÚT TRÊN MỌI MÀN HÌNH -->
     <nav class="navbar">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <button class="menu-toggle" onclick="toggleMobileMenu()">☰</button>
+        <div class="navbar-left">
+            <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="Mở menu">☰</button>
             <a href="index.php" class="brand-logo">Việt MAC</a>
         </div>
 
@@ -55,7 +55,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 
         <div class="user-Area">
             <?php if (isLogged()): ?>
-                <span>Xin chào, <strong><?= htmlspecialchars($_SESSION['user']['hoTen']) ?></strong></span>
+                <span class="user-greeting">Xin chào, <strong><?= htmlspecialchars($_SESSION['user']['hoTen']) ?></strong></span>
                 <span class="role-tag"><?= htmlspecialchars($_SESSION['user']['tenVaiTro']) ?></span>
                 <a href="xuly/auth_action.php?action=logout" class="btn btn-outline btn-sm">Đăng xuất</a>
             <?php else: ?>
@@ -75,14 +75,14 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <?php endif; ?>
 
         <!-- =======================================================
-             PHÂN HỆ 1: QUẢN LÝ SẢN PHẨM (DÀNH CHO ADMIN & NHÂN VIÊN)
+             PHÂN HỆ 1: QUẢN LÝ SẢN PHẨM (HỖ TRỢ NHIỀU ẢNH & MOBILE CARD VIEW)
              ======================================================= -->
         <?php if (isStaffOrAdmin()): ?>
         <section id="admin-product" class="section-view <?= $activeTab === 'admin-product' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
                     <h2>Quản Lý Sản Phẩm & Tồn Kho - Việt MAC</h2>
-                    <p style="font-size:13px; color:#6b7280;">Ảnh sản phẩm được lưu tại thư mục: <strong>images/anh_sp/</strong></p>
+                    <p style="font-size:13px; color:#64748b;">Hỗ trợ tải nhiều hình ảnh cho mỗi sản phẩm vào thư mục: <strong>images/anh_sp/</strong></p>
                 </div>
                 <button class="btn btn-dark" onclick="openProductModal('add')">+ Thêm Sản Phẩm Mới</button>
             </div>
@@ -92,12 +92,12 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     <thead>
                         <tr>
                             <th>Mã SP</th>
-                            <th>Ảnh</th>
+                            <th>Bộ Ảnh</th>
                             <th>Tên Sản Phẩm</th>
                             <th>Thương Hiệu</th>
                             <th>Thông Số Gọng</th>
                             <th>Giá Bán</th>
-                            <th>Tồn Thực / Giữ Tạm</th>
+                            <th>Tồn Kho</th>
                             <th>Trạng Thái</th>
                             <th>Thao Tác</th>
                         </tr>
@@ -108,25 +108,32 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <?php else: ?>
                             <?php foreach ($dsSanPham as $sp): ?>
                             <tr>
-                                <td><strong><?= $sp['maSanPham'] ?></strong></td>
-                                <td>
-                                    <?php if (!empty($sp['hinhAnh'])): ?>
-                                        <img src="images/anh_sp/<?= htmlspecialchars($sp['hinhAnh']) ?>" class="thumb-img" alt="">
+                                <td data-label="Mã SP"><strong><?= $sp['maSanPham'] ?></strong></td>
+                                <td data-label="Bộ Ảnh">
+                                    <?php if (!empty($sp['dsAnh'])): ?>
+                                        <div class="admin-img-stack">
+                                            <?php foreach (array_slice($sp['dsAnh'], 0, 2) as $anh): ?>
+                                                <img src="images/anh_sp/<?= htmlspecialchars($anh['hinhAnh']) ?>" class="thumb-img" alt="">
+                                            <?php endforeach; ?>
+                                            <?php if (count($sp['dsAnh']) > 2): ?>
+                                                <span class="admin-img-count">+<?= count($sp['dsAnh']) - 2 ?> ảnh</span>
+                                            <?php endif; ?>
+                                        </div>
                                     <?php else: ?>
-                                        <span style="font-size:12px;color:#9ca3af;">Chưa có ảnh</span>
+                                        <span style="font-size:12px;color:#94a3b8;">Chưa có ảnh</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= htmlspecialchars($sp['tenSanPham']) ?></td>
-                                <td><?= htmlspecialchars($sp['tenThuongHieu'] ?? '') ?></td>
-                                <td style="font-size:12px; color:#4b5563;">
+                                <td data-label="Tên Sản Phẩm"><strong><?= htmlspecialchars($sp['tenSanPham']) ?></strong></td>
+                                <td data-label="Thương Hiệu"><?= htmlspecialchars($sp['tenThuongHieu'] ?? '') ?></td>
+                                <td data-label="Thông Số Gọng" style="font-size:12.5px; color:#475569;">
                                     Size: <?= htmlspecialchars($sp['kichThuoc'] ?? '-') ?> | Màu: <?= htmlspecialchars($sp['mauSac'] ?? '-') ?><br>
                                     Chất liệu: <?= htmlspecialchars($sp['vatLieu'] ?? '-') ?> (<?= htmlspecialchars($sp['gioiTinh'] ?? '-') ?>)
                                 </td>
-                                <td><strong><?= number_format($sp['gia'], 0, ',', '.') ?> đ</strong></td>
-                                <td>
-                                    Tồn: <strong><?= $sp['soLuong'] ?></strong> | Giữ 15p: <strong><?= $sp['soLuongDat'] ?></strong>
+                                <td data-label="Giá Bán"><strong><?= number_format($sp['gia'], 0, ',', '.') ?> đ</strong></td>
+                                <td data-label="Tồn Kho">
+                                    <span>Tồn: <strong><?= $sp['soLuong'] ?></strong> | Giữ 15p: <strong><?= $sp['soLuongDat'] ?></strong></span>
                                 </td>
-                                <td>
+                                <td data-label="Trạng Thái">
                                     <?php if ($sp['trangThai'] === 'Đang bán'): ?>
                                         <span class="status-badge status-active">Đang bán</span>
                                     <?php elseif ($sp['trangThai'] === 'Tạm hết' || $sp['trangThai'] === 'Tạm ngưng bán'): ?>
@@ -135,14 +142,16 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                         <span class="status-badge status-stopped"><?= htmlspecialchars($sp['trangThai']) ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td>
-                                    <button class="btn btn-outline btn-sm" 
-                                            onclick='openProductModal("edit", <?= json_encode($sp, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
-                                    <?php if (isAdmin()): ?>
-                                        <a href="xuly/sanpham_action.php?action=delete&id=<?= $sp['maSanPham'] ?>" 
-                                           class="btn btn-danger btn-sm"
-                                           onclick="return confirm('Xác nhận xóa sản phẩm <?= $sp['maSanPham'] ?>?')">Xóa</a>
-                                    <?php endif; ?>
+                                <td data-label="Thao Tác">
+                                    <div class="action-group">
+                                        <button class="btn btn-outline btn-sm" 
+                                                onclick='openProductModal("edit", <?= json_encode($sp, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
+                                        <?php if (isAdmin()): ?>
+                                            <a href="xuly/sanpham_action.php?action=delete&id=<?= $sp['maSanPham'] ?>" 
+                                               class="btn btn-danger btn-sm"
+                                               onclick="return confirm('Xác nhận xóa sản phẩm <?= $sp['maSanPham'] ?>?')">Xóa</a>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -159,7 +168,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="section-header">
                 <div>
                     <h2>Quản Lý Thương Hiệu Đối Tác</h2>
-                    <p style="font-size:13px; color:#6b7280;">Logo thương hiệu được lưu tại thư mục: <strong>images/logo_thuonghieu/</strong></p>
+                    <p style="font-size:13px; color:#64748b;">Logo thương hiệu được lưu tại thư mục: <strong>images/logo_thuonghieu/</strong></p>
                 </div>
                 <button class="btn btn-dark" onclick="openBrandModal('add')">+ Thêm Thương Hiệu</button>
             </div>
@@ -181,24 +190,26 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <?php else: ?>
                             <?php foreach ($dsThuongHieu as $th): ?>
                             <tr>
-                                <td><strong><?= $th['maThuongHieu'] ?></strong></td>
-                                <td>
+                                <td data-label="Mã TH"><strong><?= $th['maThuongHieu'] ?></strong></td>
+                                <td data-label="Logo">
                                     <?php if (!empty($th['logo'])): ?>
                                         <img src="images/logo_thuonghieu/<?= htmlspecialchars($th['logo']) ?>" class="thumb-img" alt="">
                                     <?php else: ?>
-                                        <span style="font-size:12px;color:#9ca3af;">Không có logo</span>
+                                        <span style="font-size:12px;color:#94a3b8;">Không có logo</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><strong><?= htmlspecialchars($th['tenThuongHieu']) ?></strong></td>
-                                <td><?= htmlspecialchars($th['moTa'] ?? '') ?></td>
-                                <td>
-                                    <button class="btn btn-outline btn-sm" 
-                                            onclick='openBrandModal("edit", <?= json_encode($th, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
-                                    <?php if (isAdmin()): ?>
-                                        <a href="xuly/thuonghieu_action.php?action=delete&id=<?= $th['maThuongHieu'] ?>" 
-                                           class="btn btn-danger btn-sm"
-                                           onclick="return confirm('Xóa thương hiệu <?= $th['tenThuongHieu'] ?>?')">Xóa</a>
-                                    <?php endif; ?>
+                                <td data-label="Tên Thương Hiệu"><strong><?= htmlspecialchars($th['tenThuongHieu']) ?></strong></td>
+                                <td data-label="Mô Tả"><?= htmlspecialchars($th['moTa'] ?? '') ?></td>
+                                <td data-label="Thao Tác">
+                                    <div class="action-group">
+                                        <button class="btn btn-outline btn-sm" 
+                                                onclick='openBrandModal("edit", <?= json_encode($th, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
+                                        <?php if (isAdmin()): ?>
+                                            <a href="xuly/thuonghieu_action.php?action=delete&id=<?= $th['maThuongHieu'] ?>" 
+                                               class="btn btn-danger btn-sm"
+                                               onclick="return confirm('Xóa thương hiệu <?= $th['tenThuongHieu'] ?>?')">Xóa</a>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -210,14 +221,13 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 
         <!-- =======================================================
              PHÂN HỆ 3: QUẢN LÝ VOUCHER KHUYẾN MÃI (VOUCHER + LICHSUVOUCHER)
-             Bám sát Quy trình 2.2.8, Bảng 3.16, Bảng 3.17 và Use case Bảng 3.33
              ======================================================= -->
         <section id="admin-voucher" class="section-view <?= $activeTab === 'admin-voucher' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
                     <h2>Quản Lý Chiến Dịch Voucher Khuyến Mãi</h2>
-                    <p style="font-size:13px; color:#6b7280;">
-                        Bảng <strong>VOUCHER</strong> &amp; <strong>LICHSUVOUCHER</strong> (Admin phát hành/chỉnh sửa; Nhân viên tra cứu để áp dụng cho khách)
+                    <p style="font-size:13px; color:#64748b;">
+                        Bảng <strong>VOUCHER</strong> &amp; <strong>LICHSUVOUCHER</strong>
                     </p>
                 </div>
                 <?php if (isAdmin()): ?>
@@ -234,7 +244,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                             <th>Loại Giảm</th>
                             <th>Giá Trị Giảm</th>
                             <th>Đơn Tối Thiểu</th>
-                            <th>Lượt Dùng (Đã dùng / Giới hạn)</th>
+                            <th>Lượt Dùng</th>
                             <th>Ngày Hết Hạn</th>
                             <th>Trạng Thái</th>
                             <?php if (isAdmin()): ?>
@@ -254,23 +264,23 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                 $isOut = ($vc['gioiHanDung'] !== null && (int)$vc['daDung'] >= (int)$vc['gioiHanDung']);
                             ?>
                             <tr>
-                                <td><strong><?= $vc['maVoucher'] ?></strong></td>
-                                <td><span class="role-tag" style="background:#111827;color:#fff;letter-spacing:1px;"><?= htmlspecialchars($vc['code']) ?></span></td>
-                                <td><?= htmlspecialchars($vc['loaiGiam']) ?></td>
-                                <td>
+                                <td data-label="Mã VC"><strong><?= $vc['maVoucher'] ?></strong></td>
+                                <td data-label="Mã Code"><span class="role-tag" style="background:#0f172a;color:#fff;letter-spacing:1px;"><?= htmlspecialchars($vc['code']) ?></span></td>
+                                <td data-label="Loại Giảm"><?= htmlspecialchars($vc['loaiGiam']) ?></td>
+                                <td data-label="Giá Trị Giảm">
                                     <?php if ($vc['loaiGiam'] === 'Phần trăm' || $vc['loaiGiam'] === '%'): ?>
                                         <strong><?= (float)$vc['giaTriGiam'] ?>%</strong>
                                     <?php else: ?>
                                         <strong><?= number_format($vc['giaTriGiam'], 0, ',', '.') ?> đ</strong>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= number_format($vc['donHangToiThieu'], 0, ',', '.') ?> đ</td>
-                                <td>
+                                <td data-label="Đơn Tối Thiểu"><?= number_format($vc['donHangToiThieu'], 0, ',', '.') ?> đ</td>
+                                <td data-label="Lượt Dùng">
                                     <strong><?= (int)$vc['daDung'] ?></strong> / 
                                     <?= $vc['gioiHanDung'] !== null ? (int)$vc['gioiHanDung'] : 'Không giới hạn' ?>
                                 </td>
-                                <td><?= date('d/m/Y H:i', strtotime($vc['ngayHetHan'])) ?></td>
-                                <td>
+                                <td data-label="Ngày Hết Hạn"><?= date('d/m/Y H:i', strtotime($vc['ngayHetHan'])) ?></td>
+                                <td data-label="Trạng Thái">
                                     <?php if ($isExpired): ?>
                                         <span class="status-badge status-stopped">Hết hạn</span>
                                     <?php elseif ($isOut): ?>
@@ -280,17 +290,19 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                     <?php endif; ?>
                                 </td>
                                 <?php if (isAdmin()): ?>
-                                <td>
-                                    <button class="btn btn-outline btn-sm" 
-                                            onclick='openVoucherModal("edit", <?= json_encode($vc, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
-                                    <?php if (!$isExpired && !$isOut): ?>
-                                        <a href="xuly/voucher_action.php?action=disable&id=<?= $vc['maVoucher'] ?>" 
-                                           class="btn btn-outline btn-sm"
-                                           onclick="return confirm('Vô hiệu hóa sớm mã <?= $vc['code'] ?>?')">Vô hiệu</a>
-                                    <?php endif; ?>
-                                    <a href="xuly/voucher_action.php?action=delete&id=<?= $vc['maVoucher'] ?>" 
-                                       class="btn btn-danger btn-sm"
-                                       onclick="return confirm('Xác nhận xóa hoặc hủy mã Voucher <?= $vc['code'] ?>?')">Xóa</a>
+                                <td data-label="Thao Tác">
+                                    <div class="action-group">
+                                        <button class="btn btn-outline btn-sm" 
+                                                onclick='openVoucherModal("edit", <?= json_encode($vc, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
+                                        <?php if (!$isExpired && !$isOut): ?>
+                                            <a href="xuly/voucher_action.php?action=disable&id=<?= $vc['maVoucher'] ?>" 
+                                               class="btn btn-outline btn-sm"
+                                               onclick="return confirm('Vô hiệu hóa sớm mã <?= $vc['code'] ?>?')">Vô hiệu</a>
+                                        <?php endif; ?>
+                                        <a href="xuly/voucher_action.php?action=delete&id=<?= $vc['maVoucher'] ?>" 
+                                           class="btn btn-danger btn-sm"
+                                           onclick="return confirm('Xác nhận xóa hoặc hủy mã Voucher <?= $vc['code'] ?>?')">Xóa</a>
+                                    </div>
                                 </td>
                                 <?php endif; ?>
                             </tr>
@@ -304,7 +316,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="section-header" style="margin-top:28px;">
                 <div>
                     <h3>Lịch Sử Sử Dụng Voucher (Bảng LICHSUVOUCHER)</h3>
-                    <p style="font-size:13px; color:#6b7280;">Truy vết các đơn hàng đã áp dụng mã giảm giá nhằm chống lạm dụng khuyến mãi</p>
+                    <p style="font-size:13px; color:#64748b;">Truy vết các đơn hàng đã áp dụng mã giảm giá nhằm chống lạm dụng khuyến mãi</p>
                 </div>
             </div>
             <div class="card">
@@ -325,12 +337,12 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <?php else: ?>
                             <?php foreach ($dsLichSuVoucher as $ls): ?>
                             <tr>
-                                <td><strong><?= $ls['maLichSu'] ?></strong></td>
-                                <td><strong><?= htmlspecialchars($ls['code']) ?></strong></td>
-                                <td><?= htmlspecialchars($ls['maDonHang']) ?></td>
-                                <td><?= htmlspecialchars($ls['tenNN']) ?> (<?= htmlspecialchars($ls['soDienThoai']) ?>)</td>
-                                <td><strong><?= number_format($ls['tongTien'], 0, ',', '.') ?> đ</strong></td>
-                                <td><?= date('d/m/Y H:i:s', strtotime($ls['ngayDung'])) ?></td>
+                                <td data-label="Mã Lịch Sử"><strong><?= $ls['maLichSu'] ?></strong></td>
+                                <td data-label="Mã Code"><strong><?= htmlspecialchars($ls['code']) ?></strong></td>
+                                <td data-label="Mã Đơn Hàng"><?= htmlspecialchars($ls['maDonHang']) ?></td>
+                                <td data-label="Khách Nhận Hàng"><?= htmlspecialchars($ls['tenNN']) ?> (<?= htmlspecialchars($ls['soDienThoai']) ?>)</td>
+                                <td data-label="Tổng Tiền Đơn"><strong><?= number_format($ls['tongTien'], 0, ',', '.') ?> đ</strong></td>
+                                <td data-label="Thời Điểm Dùng"><?= date('d/m/Y H:i:s', strtotime($ls['ngayDung'])) ?></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -349,7 +361,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="section-header">
                 <div>
                     <h2>Quản Lý Nhân Viên - Việt MAC</h2>
-                    <p style="font-size:13px; color:#6b7280;">Phân quyền quản lý tài khoản nhân viên (Vai trò: NhanVien - VT02)</p>
+                    <p style="font-size:13px; color:#64748b;">Phân quyền quản lý tài khoản nhân viên (Vai trò: NhanVien - VT02)</p>
                 </div>
                 <button class="btn btn-dark" onclick="openStaffModal('add')">+ Thêm Nhân Viên Mới</button>
             </div>
@@ -371,16 +383,18 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <?php else: ?>
                             <?php foreach ($dsNhanVien as $nv): ?>
                             <tr>
-                                <td><strong><?= $nv['maNguoiDung'] ?></strong></td>
-                                <td><?= htmlspecialchars($nv['hoTen']) ?></td>
-                                <td><?= htmlspecialchars($nv['email']) ?></td>
-                                <td><span class="role-tag">Nhân Viên (VT02)</span></td>
-                                <td>
-                                    <button class="btn btn-outline btn-sm" 
-                                            onclick='openStaffModal("edit", <?= json_encode($nv, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
-                                    <a href="xuly/nhanvien_action.php?action=delete&id=<?= $nv['maNguoiDung'] ?>" 
-                                       class="btn btn-danger btn-sm"
-                                       onclick="return confirm('Xác nhận xóa tài khoản nhân viên <?= htmlspecialchars($nv['hoTen']) ?>?')">Xóa</a>
+                                <td data-label="Mã Người Dùng"><strong><?= $nv['maNguoiDung'] ?></strong></td>
+                                <td data-label="Họ và Tên"><?= htmlspecialchars($nv['hoTen']) ?></td>
+                                <td data-label="Email"><?= htmlspecialchars($nv['email']) ?></td>
+                                <td data-label="Vai Trò"><span class="role-tag">Nhân Viên (VT02)</span></td>
+                                <td data-label="Thao Tác">
+                                    <div class="action-group">
+                                        <button class="btn btn-outline btn-sm" 
+                                                onclick='openStaffModal("edit", <?= json_encode($nv, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
+                                        <a href="xuly/nhanvien_action.php?action=delete&id=<?= $nv['maNguoiDung'] ?>" 
+                                           class="btn btn-danger btn-sm"
+                                           onclick="return confirm('Xác nhận xóa tài khoản nhân viên <?= htmlspecialchars($nv['hoTen']) ?>?')">Xóa</a>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -392,13 +406,13 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <?php endif; ?>
 
         <!-- =======================================================
-             PHÂN HỆ 5: TRANG CỬA HÀNG VIỆT MAC & POPUP CHỌN TRÒNG
+             PHÂN HỆ 5: TRANG CỬA HÀNG VIỆT MAC (CÓ CHỌN XEM NHIỀU ẢNH SP)
              ======================================================= -->
         <section id="shop-view" class="section-view <?= $activeTab === 'shop-view' ? 'active' : '' ?>">
             <div class="section-header">
                 <div>
                     <h2>Bộ Sưu Tập Mắt Kính Việt MAC</h2>
-                    <p style="font-size:13px; color:#6b7280;">Chọn gọng kính chính hãng, cấu hình tròng kính theo độ cận và áp dụng mã Voucher ưu đãi</p>
+                    <p style="font-size:13px; color:#64748b;">Chọn gọng kính chính hãng, xem nhiều góc ảnh và cấu hình tròng kính theo độ cận</p>
                 </div>
             </div>
 
@@ -412,31 +426,49 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     $soSanPhamHienThi++;
                     $tonKhaDung = (int)$sp['soLuong'] - (int)$sp['soLuongDat'];
                     $coTheMua = ($sp['trangThai'] === 'Đang bán' && $tonKhaDung > 0);
+                    $mainImgPath = !empty($sp['hinhAnh']) ? 'images/anh_sp/' . htmlspecialchars($sp['hinhAnh']) : 'https://via.placeholder.com/260x140?text=Viet+MAC';
                 ?>
                     <div class="product-card <?= !$coTheMua ? 'product-out' : '' ?>">
-                        <img src="<?= !empty($sp['hinhAnh']) ? 'images/anh_sp/' . htmlspecialchars($sp['hinhAnh']) : 'https://via.placeholder.com/260x140?text=Viet+MAC' ?>" alt="">
-                        <div class="product-brand"><?= htmlspecialchars($sp['tenThuongHieu'] ?? 'Việt MAC') ?></div>
-                        <div class="product-title"><?= htmlspecialchars($sp['tenSanPham']) ?></div>
-                        <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">
-                            Màu: <?= htmlspecialchars($sp['mauSac'] ?? 'Đen') ?> | Size: <?= htmlspecialchars($sp['kichThuoc'] ?? 'M') ?>
-                        </div>
-                        <div class="product-price"><?= number_format($sp['gia'], 0, ',', '.') ?> đ</div>
+                        <div>
+                            <img id="main-img-<?= $sp['maSanPham'] ?>" src="<?= $mainImgPath ?>" class="product-main-img" alt="">
+                            
+                            <!-- Hiển thị dải ảnh thu nhỏ (thumbnails) nếu sản phẩm có nhiều ảnh -->
+                            <?php if (!empty($sp['dsAnh']) && count($sp['dsAnh']) > 1): ?>
+                                <div class="product-thumbs">
+                                    <?php foreach ($sp['dsAnh'] as $idx => $anh): ?>
+                                        <img src="images/anh_sp/<?= htmlspecialchars($anh['hinhAnh']) ?>" 
+                                             class="product-thumb-item <?= $idx === 0 ? 'active-thumb' : '' ?>" 
+                                             onclick="changeProductCardImage('<?= $sp['maSanPham'] ?>', 'images/anh_sp/<?= htmlspecialchars($anh['hinhAnh']) ?>', this)"
+                                             alt="">
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
 
-                        <?php if ($coTheMua): ?>
-                            <button class="btn btn-dark" style="width:100%;" 
-                                    onclick="openLensWizard('<?= $sp['maSanPham'] ?>', '<?= htmlspecialchars($sp['tenSanPham'], ENT_QUOTES) ?>', <?= $sp['gia'] ?>)">
-                                Chọn Tròng Kính & Mua
-                            </button>
-                        <?php else: ?>
-                            <button class="btn btn-disabled" style="width:100%;" disabled>
-                                Tạm Hết Hàng
-                            </button>
-                        <?php endif; ?>
+                            <div class="product-brand"><?= htmlspecialchars($sp['tenThuongHieu'] ?? 'Việt MAC') ?></div>
+                            <div class="product-title"><?= htmlspecialchars($sp['tenSanPham']) ?></div>
+                            <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
+                                Màu: <?= htmlspecialchars($sp['mauSac'] ?? 'Đen') ?> | Size: <?= htmlspecialchars($sp['kichThuoc'] ?? 'M') ?>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="product-price"><?= number_format($sp['gia'], 0, ',', '.') ?> đ</div>
+                            <?php if ($coTheMua): ?>
+                                <button class="btn btn-dark" style="width:100%;" 
+                                        onclick="openLensWizard('<?= $sp['maSanPham'] ?>', '<?= htmlspecialchars($sp['tenSanPham'], ENT_QUOTES) ?>', <?= $sp['gia'] ?>)">
+                                    Chọn Tròng Kính & Mua
+                                </button>
+                            <?php else: ?>
+                                <button class="btn btn-disabled" style="width:100%;" disabled>
+                                    Tạm Hết Hàng
+                                </button>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 <?php endforeach; ?>
 
                 <?php if ($soSanPhamHienThi === 0): ?>
-                    <p style="grid-column: 1 / -1; text-align:center; color:#6b7280; padding: 40px 0;">
+                    <p style="grid-column: 1 / -1; text-align:center; color:#64748b; padding: 40px 0;">
                         Hiện chưa có sản phẩm nào đang mở bán.
                     </p>
                 <?php endif; ?>
@@ -445,28 +477,27 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
     </div>
 
     <!-- =======================================================
-         MODAL 1: ĐĂNG NHẬP HỆ THỐNG
+         MODAL 1: ĐĂNG NHẬP HỆ THỐNG (ĐÃ ẨN TÀI KHOẢN ADMIN KHỎI GIAO DIỆN KHÁCH)
+         Hỗ trợ bấm phím Tab mượt mà để tự điền gợi ý khi gõ chữ cái đầu và chuyển xuống ô mật khẩu
          ======================================================= -->
     <div id="loginModal" class="modal-overlay">
         <div class="modal-box" style="max-width: 420px;">
             <div class="modal-header">
                 <h3>Đăng Nhập Việt MAC</h3>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('loginModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" tabindex="-1" onclick="closeModal('loginModal')">✕</button>
             </div>
-            <form action="xuly/auth_action.php" method="POST">
+            <form action="xuly/auth_action.php" method="POST" autocomplete="on">
                 <input type="hidden" name="action" value="login">
                 <div class="form-group">
-                    <label>Email đăng nhập</label>
-                    <input type="email" name="email" placeholder="admin@kinhmat.vn" required>
+                    <label for="loginEmail">Email đăng nhập</label>
+                    <input type="email" id="loginEmail" name="email" tabindex="1" placeholder="Nhập email của bạn (VD: nguyenvanan@gmail.com)" autocomplete="email" required>
+                    <small id="emailSuggestHint" style="display:none; color:#0f172a; font-size:12px; margin-top:5px;"></small>
                 </div>
                 <div class="form-group">
-                    <label>Mật khẩu</label>
-                    <input type="password" name="matKhau" placeholder="Mật khẩu mẫu: 123" required>
+                    <label for="loginPassword">Mật khẩu</label>
+                    <input type="password" id="loginPassword" name="matKhau" tabindex="2" placeholder="Nhập mật khẩu đăng nhập" autocomplete="current-password" required>
                 </div>
-                <p style="font-size:12px; color:#6b7280; margin-bottom:12px;">
-                    TK mẫu: <strong>admin@kinhmat.vn</strong>, <strong>nhanvien@kinhmat.vn</strong>, <strong>nguyenvanan@gmail.com</strong> (Pass: <strong>123</strong>)
-                </p>
-                <button type="submit" class="btn btn-dark" style="width:100%;">Đăng Nhập</button>
+                <button type="submit" tabindex="3" class="btn btn-dark" style="width:100%; margin-top:4px;">Đăng Nhập</button>
                 <div class="auth-switch-text">
                     Chưa có tài khoản thành viên? <a onclick="switchAuthModal('loginModal', 'registerModal')">Đăng ký ngay</a>
                 </div>
@@ -482,9 +513,9 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="modal-header">
                 <div>
                     <h3>Đăng Ký Thành Viên Việt MAC</h3>
-                    <p style="font-size:12px; color:#6b7280;">Lưu trữ thông tin giao hàng, đơn kính thuốc & nhận ưu đãi Voucher</p>
+                    <p style="font-size:12px; color:#64748b;">Lưu trữ thông tin giao hàng, đơn kính thuốc & nhận ưu đãi Voucher</p>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('registerModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('registerModal')">✕</button>
             </div>
             <form action="xuly/auth_action.php" method="POST">
                 <input type="hidden" name="action" value="register">
@@ -537,7 +568,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <div class="modal-box" style="max-width: 480px;">
             <div class="modal-header">
                 <h3 id="brandModalTitle">Thêm Thương Hiệu</h3>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('brandModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('brandModal')">✕</button>
             </div>
             <form id="brandForm" action="xuly/thuonghieu_action.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" id="brandFormAction" value="add">
@@ -561,13 +592,13 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
     </div>
 
     <!-- =======================================================
-         MODAL 4: THÊM / SỬA SẢN PHẨM (SANPHAM + CHITIETSANPHAM + ANHSP + TONKO)
+         MODAL 4: THÊM / SỬA SẢN PHẨM (HỖ TRỢ TẢI LÊN NHIỀU ẢNH CÙNG LÚC)
          ======================================================= -->
     <div id="productModal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
                 <h3 id="productModalTitle">Thêm Sản Phẩm Kính</h3>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('productModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('productModal')">✕</button>
             </div>
             <form id="productForm" action="xuly/sanpham_action.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" id="productFormAction" value="add">
@@ -643,10 +674,28 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                             <option value="Ngừng bán">Ngừng bán (Ẩn khỏi trang Shop)</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Ảnh sản phẩm (Lưu vào images/anh_sp/)</label>
-                        <input type="file" name="hinhAnh" accept="image/*">
+                    <div class="form-group" id="uploadModeSection" style="display:none;">
+                        <label>Chế độ khi tải thêm ảnh mới</label>
+                        <select name="cheDoAnh">
+                            <option value="append">Giữ ảnh cũ & Thêm ảnh mới vào bộ sưu tập</option>
+                            <option value="replace">Xóa toàn bộ ảnh cũ & Thay bằng bộ ảnh mới</option>
+                        </select>
                     </div>
+
+                    <!-- CHO PHÉP CHỌN NHIỀU ẢNH CÙNG LÚC (multiple) -->
+                    <div class="form-group full">
+                        <label>Tải lên hình ảnh sản phẩm (Có thể bôi đen chọn <strong>nhiều ảnh cùng lúc</strong>) *</label>
+                        <input type="file" name="hinhAnh[]" accept="image/*" multiple onchange="previewMultipleImages(this)">
+                        <small style="color:#64748b; font-size:12px;">Ảnh đầu tiên sẽ tự động được chọn làm Ảnh chính đại diện (anhChinh = 1).</small>
+                        <div id="newImagesPreview" class="existing-images-grid"></div>
+                    </div>
+
+                    <!-- HIỂN THỊ CÁC ẢNH ĐANG CÓ KHI BẤM SỬA SẢN PHẨM -->
+                    <div class="form-group full" id="existingImagesSection" style="display:none;">
+                        <label>Bộ ảnh hiện tại của sản phẩm (Có thể đổi ảnh chính hoặc xóa ảnh phụ):</label>
+                        <div id="existingImagesList" class="existing-images-grid"></div>
+                    </div>
+
                     <div class="form-group full">
                         <label>Mô tả sản phẩm</label>
                         <textarea name="moTa" id="moTaSP" rows="2"></textarea>
@@ -664,7 +713,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         <div class="modal-box" style="max-width: 480px;">
             <div class="modal-header">
                 <h3 id="staffModalTitle">Thêm Nhân Viên Mới</h3>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('staffModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('staffModal')">✕</button>
             </div>
             <form id="staffForm" action="xuly/nhanvien_action.php" method="POST">
                 <input type="hidden" name="action" id="staffFormAction" value="add">
@@ -680,8 +729,8 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
                 <div class="form-group" id="matKhauGroup">
                     <label>Mật khẩu đăng nhập *</label>
-                    <input type="password" name="matKhau" id="matKhauStaff" placeholder="Nhập mật khẩu (Mặc định: 123)">
-                    <small style="color:#6b7280; font-size:11px;">Khi sửa thông tin, có thể để trống nếu không muốn đổi mật khẩu.</small>
+                    <input type="password" name="matKhau" id="matKhauStaff" placeholder="Nhập mật khẩu">
+                    <small style="color:#64748b; font-size:11px;">Khi sửa thông tin, có thể để trống nếu không muốn đổi mật khẩu.</small>
                 </div>
                 <button type="submit" class="btn btn-dark" style="width:100%; margin-top:10px;">Lưu Thông Tin</button>
             </form>
@@ -690,16 +739,15 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
 
     <!-- =======================================================
          MODAL 6: PHÁT HÀNH / SỬA VOUCHER KHUYẾN MÃI (BẢNG VOUCHER)
-         Bám sát Bảng 3.16 & Bảng 3.33 trong báo cáo đồ án
          ======================================================= -->
     <div id="voucherModal" class="modal-overlay">
         <div class="modal-box" style="max-width: 560px;">
             <div class="modal-header">
                 <div>
                     <h3 id="voucherModalTitle">Phát Hành Mã Voucher Mới</h3>
-                    <p style="font-size:12px; color:#6b7280;">Thiết lập chiến dịch giảm giá theo tiền mặt hoặc phần trăm (Bảng VOUCHER)</p>
+                    <p style="font-size:12px; color:#64748b;">Thiết lập chiến dịch giảm giá theo tiền mặt hoặc phần trăm (Bảng VOUCHER)</p>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('voucherModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('voucherModal')">✕</button>
             </div>
             <form id="voucherForm" action="xuly/voucher_action.php" method="POST">
                 <input type="hidden" name="action" id="voucherFormAction" value="add">
@@ -747,9 +795,9 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="modal-header">
                 <div>
                     <h3>Cấu Hình Tròng Kính & Độ Mắt - Việt MAC</h3>
-                    <p id="wizardProductName" style="font-size:13px; color:#6b7280;"></p>
+                    <p id="wizardProductName" style="font-size:13px; color:#64748b;"></p>
                 </div>
-                <button class="btn btn-outline btn-sm" onclick="closeModal('lensWizardModal')">✕</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('lensWizardModal')">✕</button>
             </div>
 
             <div class="step-indicator">
@@ -763,14 +811,14 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 <div class="option-box" onclick="goToStep(2)">
                     <div>
                         <strong>Kính có độ (Cận / Viễn / Loạn thị)</strong>
-                        <p style="font-size:12px; color:#6b7280;">Cắt tròng theo thông số đo mắt cá nhân (KETQUADOMAT)</p>
+                        <p style="font-size:12px; color:#64748b;">Cắt tròng theo thông số đo mắt cá nhân (KETQUADOMAT)</p>
                     </div>
                     <span>→</span>
                 </div>
                 <div class="option-box" onclick="goToStep(3)">
                     <div>
                         <strong>Kính không độ (Bảo vệ mắt / Chống ánh sáng xanh)</strong>
-                        <p style="font-size:12px; color:#6b7280;">Bỏ qua bước nhập độ mắt, chuyển thẳng tới chọn lớp phủ tròng</p>
+                        <p style="font-size:12px; color:#64748b;">Bỏ qua bước nhập độ mắt, chuyển thẳng tới chọn lớp phủ tròng</p>
                     </div>
                     <span>→</span>
                 </div>
@@ -797,8 +845,8 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     </div>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:12px;">
-                    <button class="btn btn-outline" onclick="goToStep(1)">← Quay lại</button>
-                    <button class="btn btn-dark" onclick="goToStep(3)">Tiếp tục chọn tròng →</button>
+                    <button type="button" class="btn btn-outline" onclick="goToStep(1)">← Quay lại</button>
+                    <button type="button" class="btn btn-dark" onclick="goToStep(3)">Tiếp tục chọn tròng →</button>
                 </div>
             </div>
 
@@ -807,45 +855,45 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 <div class="option-box selected" onclick="selectLensOption(350000, this)">
                     <div>
                         <strong>Tròng Tiêu Chuẩn Chiết Suất 1.56</strong>
-                        <p style="font-size:12px; color:#6b7280;">Chống phản quang, chống tia UV400 cơ bản</p>
+                        <p style="font-size:12px; color:#64748b;">Chống phản quang, chống tia UV400 cơ bản</p>
                     </div>
                     <strong>+ 350.000 đ</strong>
                 </div>
                 <div class="option-box" onclick="selectLensOption(650000, this)">
                     <div>
                         <strong>Tròng Mỏng 1.60 + Chống Ánh Sáng Xanh</strong>
-                        <p style="font-size:12px; color:#6b7280;">Bảo vệ mắt khi dùng máy tính, mỏng nhẹ hơn 20%</p>
+                        <p style="font-size:12px; color:#64748b;">Bảo vệ mắt khi dùng máy tính, mỏng nhẹ hơn 20%</p>
                     </div>
                     <strong>+ 650.000 đ</strong>
                 </div>
                 <div class="option-box" onclick="selectLensOption(1200000, this)">
                     <div>
                         <strong>Tròng Siêu Mỏng 1.67 Đổi Màu Khói</strong>
-                        <p style="font-size:12px; color:#6b7280;">Tự động sẫm màu khi ra nắng, trong suốt khi ở trong nhà</p>
+                        <p style="font-size:12px; color:#64748b;">Tự động sẫm màu khi ra nắng, trong suốt khi ở trong nhà</p>
                     </div>
                     <strong>+ 1.200.000 đ</strong>
                 </div>
 
-                <!-- KHUNG NHẬP MÃ KHUYẾN MÃI VOUCHER (Theo đúng Bảng 3.24) -->
-                <div style="margin-top: 14px; padding: 12px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 8px;">
+                <!-- KHUNG NHẬP MÃ KHUYẾN MÃI VOUCHER -->
+                <div style="margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
                     <label style="font-size:13px; font-weight:600; display:block; margin-bottom:6px;">Mã khuyến mãi Voucher</label>
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="wizardVoucherInput" placeholder="Nhập mã (VD: VIETMAC2026)" style="flex:1; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; text-transform:uppercase;">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="wizardVoucherInput" placeholder="Nhập mã (VD: VIETMAC15)" style="flex:1; min-width:160px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; text-transform:uppercase;">
                         <button type="button" class="btn btn-dark btn-sm" onclick="applyVoucherInWizard()">Áp dụng</button>
                         <button type="button" class="btn btn-outline btn-sm" onclick="removeVoucherInWizard()">Gỡ bỏ</button>
                     </div>
                     <p id="wizardVoucherMsg" style="font-size:12px; margin-top:6px;"></p>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:12px; border-top:1px solid #e5e7eb;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:18px; padding-top:12px; border-top:1px solid #e2e8f0;">
                     <div>
-                        <span style="font-size:13px; color:#6b7280;">Tổng cộng (Gọng + Tròng):</span>
+                        <span style="font-size:13px; color:#64748b;">Tổng cộng (Gọng + Tròng):</span>
                         <h3 id="wizardTotalPrice">0 đ</h3>
                         <p id="wizardDiscountInfo" style="display:none; font-size:12px; color:#065f46; font-weight:600;"></p>
                     </div>
                     <div style="display:flex; gap:8px;">
-                        <button class="btn btn-outline" onclick="goToStep(2)">← Quay lại</button>
-                        <button class="btn btn-dark" onclick="finishLensWizard()">Thêm Vào Giỏ Hàng</button>
+                        <button type="button" class="btn btn-outline" onclick="goToStep(2)">← Quay lại</button>
+                        <button type="button" class="btn btn-dark" onclick="finishLensWizard()">Thêm Vào Giỏ Hàng</button>
                     </div>
                 </div>
             </div>

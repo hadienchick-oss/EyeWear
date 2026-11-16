@@ -21,7 +21,7 @@ function taoMaTuDong($conn, $table, $column, $prefix) {
 
 /**
  * 2. Các hàm kiểm tra quyền đăng nhập
- * VT01: Admin (Toàn quyền) | VT02: Nhân viên (Thêm/Sửa SP/TH, Áp dụng Voucher, không được tạo/xóa Voucher) | VT03: Khách hàng
+ * VT01: Admin (Toàn quyền) | VT02: Nhân viên | VT03: Khách hàng
  */
 function isLogged() {
     return isset($_SESSION['user']);
@@ -44,23 +44,30 @@ function layDanhSachThuongHieu($conn) {
 }
 
 /**
- * 4. Lấy danh sách sản phẩm kèm Thương hiệu, Ảnh chính, Thông số chi tiết và Tồn kho
+ * 4. Lấy danh sách sản phẩm kèm Thương hiệu, Ảnh chính, Danh sách nhiều ảnh, Thông số chi tiết và Tồn kho
  */
 function layDanhSachSanPham($conn) {
     $sql = "SELECT sp.*, 
                    th.tenThuongHieu, 
-                   anh.hinhAnh,
+                   (SELECT hinhAnh FROM ANHSP a WHERE a.maSanPham = sp.maSanPham ORDER BY a.anhChinh DESC, a.maAnh ASC LIMIT 1) AS hinhAnh,
                    ct.kichThuoc, ct.chieuRongKhung, ct.chieuRongCau, ct.chieuRongThauKinh, 
                    ct.chieuCaoOngKinh, ct.chieuDaiThaiDuong, ct.mauSac, ct.gioiTinh, ct.vatLieu,
                    COALESCE(tk.soLuong, 0) AS soLuong, 
                    COALESCE(tk.soLuongDat, 0) AS soLuongDat
             FROM SANPHAM sp
             LEFT JOIN THUONGHIEU th ON sp.maThuongHieu = th.maThuongHieu
-            LEFT JOIN ANHSP anh ON sp.maSanPham = anh.maSanPham AND anh.anhChinh = 1
             LEFT JOIN CHITIETSANPHAM ct ON sp.maSanPham = ct.maSanPham
             LEFT JOIN TONKO tk ON sp.maSanPham = tk.maSanPham
             ORDER BY sp.maSanPham DESC";
-    return $conn->query($sql)->fetchAll();
+    $products = $conn->query($sql)->fetchAll();
+
+    // Lấy toàn bộ danh sách ảnh phụ/chính của từng sản phẩm trong bảng ANHSP
+    $stmtImgs = $conn->prepare("SELECT maAnh, hinhAnh, anhChinh FROM ANHSP WHERE maSanPham = ? ORDER BY anhChinh DESC, maAnh ASC");
+    foreach ($products as &$sp) {
+        $stmtImgs->execute([$sp['maSanPham']]);
+        $sp['dsAnh'] = $stmtImgs->fetchAll();
+    }
+    return $products;
 }
 
 /**
@@ -80,7 +87,7 @@ function layDanhSachVoucher($conn) {
 }
 
 /**
- * 7. Lấy lịch sử sử dụng Voucher (Bảng LICHSUVOUCHER kết hợp VOUCHER và DONHANG)
+ * 7. Lấy lịch sử sử dụng Voucher (Bảng LICHSUVOUCHER)
  */
 function layLichSuVoucher($conn) {
     $sql = "SELECT ls.*, v.code, dh.tenNN, dh.soDienThoai, dh.tongTien
