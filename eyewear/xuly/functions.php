@@ -36,7 +36,58 @@ function isStaffOrAdmin() {
 }
 
 /**
- * 3. Lấy maKhachHang & Hồ sơ tài khoản hiện tại
+ * 3. Ghi & đọc nhật ký hoạt động Nhân viên / Quản trị (Tạo đơn POS & Phản hồi khiếu nại)
+ */
+function ghiNhatKyNhanVien($maNguoiDung, $loaiHoatDong, $maDoiTuong, $moTaChiTiet) {
+    $logFile = __DIR__ . '/staff_activity_log.json';
+    $logs = [];
+    if (file_exists($logFile)) {
+        $decoded = json_decode(file_get_contents($logFile), true);
+        if (is_array($decoded)) $logs = $decoded;
+    }
+    $logs[] = [
+        'maNguoiDung' => $maNguoiDung,
+        'loai'        => $loaiHoatDong, // 'pos_order' | 'reply_complaint'
+        'maDoiTuong'  => $maDoiTuong,
+        'moTa'        => $moTaChiTiet,
+        'thoiGian'    => date('Y-m-d H:i:s')
+    ];
+    file_put_contents($logFile, json_encode($logs, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function layNhatKyNhanVien($conn) {
+    $logFile = __DIR__ . '/staff_activity_log.json';
+    $logs = [];
+    if (file_exists($logFile)) {
+        $decoded = json_decode(file_get_contents($logFile), true);
+        if (is_array($decoded)) $logs = $decoded;
+    }
+
+    // Gom nhóm theo maNguoiDung
+    $grouped = [];
+    foreach ($logs as $entry) {
+        $uid = $entry['maNguoiDung'] ?? '';
+        if ($uid === '') continue;
+        if (!isset($grouped[$uid])) {
+            $grouped[$uid] = [
+                'donDaTao'     => [],
+                'donDaXuLy'    => [],
+                'khieuNaiXuLy' => []
+            ];
+        }
+        if ($entry['loai'] === 'pos_order') {
+            $grouped[$uid]['donDaTao'][] = $entry;
+        } elseif ($entry['loai'] === 'process_order') {
+            $grouped[$uid]['donDaXuLy'][] = $entry;
+        } elseif ($entry['loai'] === 'reply_complaint') {
+            $grouped[$uid]['khieuNaiXuLy'][] = $entry;
+        }
+    }
+    return $grouped;
+}
+
+/**
+ * 4. Lấy maKhachHang & Hồ sơ tài khoản hiện tại
  */
 function layMaKhachHangHienTai($conn) {
     if (!isLogged()) return null;
@@ -66,7 +117,7 @@ function layHoSoNguoiDungHienTai($conn) {
 }
 
 /**
- * 4. Đồng bộ tồn kho & tự động chuyển trạng thái 'Tạm hết' khi hết hàng
+ * 5. Đồng bộ tồn kho & tự động chuyển trạng thái 'Tạm hết' khi hết hàng
  */
 function capNhatTonKhoVaTrangThaiSP($conn, $maSanPham, $deltaSoLuong, $deltaSoLuongDat = 0) {
     $stmt = $conn->prepare("SELECT soLuong, soLuongDat FROM TONKO WHERE maSanPham = ? FOR UPDATE");
@@ -80,7 +131,6 @@ function capNhatTonKhoVaTrangThaiSP($conn, $maSanPham, $deltaSoLuong, $deltaSoLu
         $conn->prepare("UPDATE TONKO SET soLuong = ?, soLuongDat = ? WHERE maSanPham = ?")
              ->execute([$newSoLuong, $newSoLuongDat, $maSanPham]);
 
-        // Kiểm tra trạng thái hiện tại của sản phẩm
         $stmtSP = $conn->prepare("SELECT trangThai FROM SANPHAM WHERE maSanPham = ?");
         $stmtSP->execute([$maSanPham]);
         $trangThaiHienTai = $stmtSP->fetchColumn();
@@ -96,18 +146,20 @@ function capNhatTonKhoVaTrangThaiSP($conn, $maSanPham, $deltaSoLuong, $deltaSoLu
 }
 
 /**
- * 5. Lấy danh sách Thương hiệu
+ * 6. Lấy danh sách Thương hiệu
  */
 function layDanhSachThuongHieu($conn) {
     return $conn->query("SELECT * FROM THUONGHIEU ORDER BY maThuongHieu DESC")->fetchAll();
 }
 
 /**
- * 6. Lấy danh sách Sản phẩm kèm Thương hiệu, Ảnh, Thông số, Tồn kho, Đánh giá & Số lượng đã bán (Bán chạy)
+ * 7. Lấy danh sách Sản phẩm
  */
 function layDanhSachSanPham($conn) {
     $sql = "SELECT sp.*, 
                    th.tenThuongHieu, 
+                   th.logo AS logoThuongHieu,
+                   th.moTa AS moTaThuongHieu,
                    (SELECT hinhAnh FROM ANHSP a WHERE a.maSanPham = sp.maSanPham ORDER BY a.anhChinh DESC, a.maAnh ASC LIMIT 1) AS hinhAnh,
                    ct.kichThuoc, ct.chieuRongKhung, ct.chieuRongCau, ct.chieuRongThauKinh, 
                    ct.chieuCaoOngKinh, ct.chieuDaiThaiDuong, ct.mauSac, ct.gioiTinh, ct.vatLieu,
@@ -152,34 +204,42 @@ function layDanhSachSanPham($conn) {
 }
 
 /**
- * 7. Lấy danh sách Tròng kính (Bảng TRONGKINH)
+ * 8. Lấy danh sách Tròng kính (Bảng TRONGKINH)
  */
 function layDanhSachTrongKinh($conn) {
-    $list = $conn->query("SELECT * FROM TRONGKINH ORDER BY gia ASC")->fetchAll();
+    $list = $conn->query("SELECT * FROM TRONGKINH WHERE maKetQuaDo IS NULL ORDER BY gia ASC")->fetchAll();
     if (empty($list)) {
         $conn->exec("INSERT IGNORE INTO `TRONGKINH` (`maTrongKinh`, `loai`, `chietSuat`, `tinhNang`, `gia`, `vatLieu`) VALUES
             ('TRK01', 'Đơn tròng', 1.56, 'Chống phản quang, chống tia UV400 cơ bản', 350000.00, 'Nhựa hữu cơ CR-39'),
             ('TRK02', 'Đơn tròng', 1.60, 'Chống ánh sáng xanh máy tính, mỏng nhẹ hơn 20%', 650000.00, 'High-Index Plastic'),
             ('TRK03', 'Đa tròng', 1.67, 'Siêu mỏng, Đổi màu khói khi ra nắng', 1200000.00, 'Polycarbonate cao cấp')");
-        $list = $conn->query("SELECT * FROM TRONGKINH ORDER BY gia ASC")->fetchAll();
+        $list = $conn->query("SELECT * FROM TRONGKINH WHERE maKetQuaDo IS NULL ORDER BY gia ASC")->fetchAll();
     }
     return $list;
 }
 
 /**
- * 8. Lấy danh sách Nhân viên (VT02)
+ * 9. Lấy danh sách Nhân viên (VT02) kèm lịch sử hoạt động (tạo đơn POS & phản hồi khiếu nại)
  */
 function layDanhSachNhanVien($conn) {
-    return $conn->query("SELECT * FROM NGUOIDUNG WHERE maVaiTro = 'VT02' ORDER BY maNguoiDung DESC")->fetchAll();
+    $staffList = $conn->query("SELECT * FROM NGUOIDUNG WHERE maVaiTro = 'VT02' ORDER BY maNguoiDung DESC")->fetchAll();
+    $activityMap = layNhatKyNhanVien($conn);
+    foreach ($staffList as &$st) {
+        $uid = $st['maNguoiDung'];
+        $st['donDaTao'] = $activityMap[$uid]['donDaTao'] ?? [];
+        $st['donDaXuLy'] = $activityMap[$uid]['donDaXuLy'] ?? [];
+        $st['khieuNaiXuLy'] = $activityMap[$uid]['khieuNaiXuLy'] ?? [];
+    }
+    return $staffList;
 }
 
 /**
- * 9. Lấy danh sách Khách hàng thành viên & Khách vãng lai
+ * 10. Lấy danh sách Khách hàng thành viên & Khách vãng lai
  */
 function layDanhSachKhachHang($conn) {
     $sql = "SELECT kh.*, nd.hoTen, nd.email,
-                   (SELECT COALESCE(SUM(dh.tongTien), 0) FROM DONHANG dh WHERE dh.maKhachHang = kh.maKhachHang) AS tongChiTieu,
-                   (SELECT COUNT(*) FROM DONHANG dh WHERE dh.maKhachHang = kh.maKhachHang) AS soDonHang
+                   (SELECT COALESCE(SUM(dh.tongTien), 0) FROM DONHANG dh WHERE dh.maKhachHang = kh.maKhachHang OR (dh.maKhachHang IS NULL AND dh.soDienThoai = kh.soDienThoai)) AS tongChiTieu,
+                   (SELECT COUNT(*) FROM DONHANG dh WHERE dh.maKhachHang = kh.maKhachHang OR (dh.maKhachHang IS NULL AND dh.soDienThoai = kh.soDienThoai)) AS soDonHang
             FROM KHACHHANG kh
             JOIN NGUOIDUNG nd ON kh.maNguoiDung = nd.maNguoiDung
             ORDER BY kh.maKhachHang DESC";
@@ -197,7 +257,7 @@ function layDanhSachKhachVangLai($conn) {
 }
 
 /**
- * 10. Lấy danh sách Voucher & Lịch sử sử dụng Voucher
+ * 11. Lấy danh sách Voucher & Lịch sử sử dụng Voucher
  */
 function layDanhSachVoucher($conn) {
     return $conn->query("SELECT * FROM VOUCHER ORDER BY maVoucher DESC")->fetchAll();
@@ -213,7 +273,7 @@ function layLichSuVoucher($conn) {
 }
 
 /**
- * 11. Lấy danh sách Đơn hàng kèm Chi tiết sản phẩm, Tròng kính & Thanh toán
+ * 12. Lấy danh sách Đơn hàng kèm Chi tiết sản phẩm, Tròng kính, Thông số độ mắt (KETQUADOMAT) & Thanh toán
  */
 function layDanhSachDonHang($conn, $maKhachHang = null, $soDienThoai = null) {
     $where = "";
@@ -240,10 +300,12 @@ function layDanhSachDonHang($conn, $maKhachHang = null, $soDienThoai = null) {
 
     $stmtCT = $conn->prepare("SELECT ct.*, sp.tenSanPham, sp.gia AS giaGong,
                                      (SELECT hinhAnh FROM ANHSP a WHERE a.maSanPham = sp.maSanPham ORDER BY a.anhChinh DESC, a.maAnh ASC LIMIT 1) AS hinhAnh,
-                                     tk.loai AS loaiTrong, tk.chietSuat, tk.tinhNang, tk.gia AS giaTrong
+                                     tk.loai AS loaiTrong, tk.chietSuat, tk.tinhNang, tk.gia AS giaTrong,
+                                     kq.ketQua AS thongSoDoMat
                               FROM CHITIETDONHANG ct
                               JOIN SANPHAM sp ON ct.maSanPham = sp.maSanPham
                               LEFT JOIN TRONGKINH tk ON ct.maTrongKinh = tk.maTrongKinh
+                              LEFT JOIN KETQUADOMAT kq ON tk.maKetQuaDo = kq.maKetQuaDo
                               WHERE ct.maDonHang = ?");
     foreach ($orders as &$od) {
         $stmtCT->execute([$od['maDonHang']]);
@@ -253,7 +315,7 @@ function layDanhSachDonHang($conn, $maKhachHang = null, $soDienThoai = null) {
 }
 
 /**
- * 12. Lấy danh sách Khiếu nại (Bảng KHIEUNAI)
+ * 13. Lấy danh sách Khiếu nại (Bảng KHIEUNAI)
  */
 function layDanhSachKhieuNai($conn, $maKhachHang = null) {
     $where = "";
@@ -275,17 +337,21 @@ function layDanhSachKhieuNai($conn, $maKhachHang = null) {
 }
 
 /**
- * 13. Đếm thông báo chờ duyệt (Chờ xác nhận thanh toán QR, Chờ xác nhận hủy đơn, Khiếu nại chờ xử lý)
+ * 14. Đếm thông báo vận hành cho Quản trị / Nhân viên:
+ * - Chỉ khi 'Đã giao' hoặc 'Đã hủy' mới mất thông báo!
+ * - `donMoiCanXuLy` (Huy hiệu số đỏ): Đơn mới cần xử lý cắt tròng / duyệt thanh toán / duyệt hủy ('Chờ xác nhận thanh toán', 'Đã xác nhận (COD)', 'Đã thanh toán', 'Đang xử lý', 'Chờ xác nhận hủy')
+ * - `donDangMaiGiao` (Chấm cam): Đơn đang trong quá trình mài lắp hoặc giao hàng ('Đang mài lắp', 'Đang giao hàng')
  */
 function demThongBaoQuanTri($conn) {
-    $choThanhToan = (int)$conn->query("SELECT COUNT(*) FROM THANHTOAN WHERE trangThai IN ('Chờ xác nhận thanh toán', 'Chờ xác nhận hủy')")->fetchColumn();
-    $choHuyDon = (int)$conn->query("SELECT COUNT(*) FROM THANHTOAN WHERE trangThai = 'Chờ xác nhận hủy'")->fetchColumn();
+    $donMoiCanXuLy = (int)$conn->query("SELECT COUNT(*) FROM THANHTOAN WHERE trangThai NOT IN ('Đã giao', 'Đã hủy', 'Đang mài lắp', 'Đang giao hàng')")->fetchColumn();
+    $donDangMaiGiao = (int)$conn->query("SELECT COUNT(*) FROM THANHTOAN WHERE trangThai IN ('Đang mài lắp', 'Đang giao hàng')")->fetchColumn();
     $choKhieuNai = (int)$conn->query("SELECT COUNT(*) FROM KHIEUNAI WHERE trangThai = 'Chờ xử lý'")->fetchColumn();
+
     return [
-        'choThanhToan' => $choThanhToan,
-        'choHuyDon'    => $choHuyDon,
-        'choKhieuNai'  => $choKhieuNai,
-        'tongThongBao' => $choThanhToan + $choKhieuNai
+        'donMoiCanXuLy'  => $donMoiCanXuLy,
+        'donDangMaiGiao' => $donDangMaiGiao,
+        'choKhieuNai'    => $choKhieuNai,
+        'tongThongBao'   => $donMoiCanXuLy + $choKhieuNai
     ];
 }
 ?>

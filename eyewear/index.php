@@ -30,7 +30,7 @@ $dsKhachVangLai = isAdmin() ? layDanhSachKhachVangLai($conn) : [];
 $dsLichSuVoucher = isAdmin() ? layLichSuVoucher($conn) : [];
 $dsDonHangQuanTri = isStaffOrAdmin() ? layDanhSachDonHang($conn) : [];
 $dsKhieuNaiQuanTri = isStaffOrAdmin() ? layDanhSachKhieuNai($conn) : [];
-$tbQuanTri = isStaffOrAdmin() ? demThongBaoQuanTri($conn) : ['choThanhToan' => 0, 'choHuyDon' => 0, 'choKhieuNai' => 0, 'tongThongBao' => 0];
+$tbQuanTri = isStaffOrAdmin() ? demThongBaoQuanTri($conn) : ['donMoiCanXuLy' => 0, 'donDangMaiGiao' => 0, 'choKhieuNai' => 0, 'tongThongBao' => 0];
 
 // Dữ liệu dành riêng cho Khách hàng
 $sdtTraCuuKhach = trim($_GET['sdt_tracuu'] ?? '');
@@ -129,21 +129,24 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             <div class="alert alert-error"><?= $_SESSION['err']; unset($_SESSION['err']); ?></div>
         <?php endif; ?>
 
-        <!-- THÔNG BÁO DUYỆT THANH TOÁN QR / DUYỆT HỦY ĐƠN / KHIẾU NẠI CHO NHÂN VIÊN & ADMIN -->
-        <?php if (isStaffOrAdmin() && ($tbQuanTri['choThanhToan'] > 0 || $tbQuanTri['choKhieuNai'] > 0)): ?>
+        <!-- THÔNG BÁO VẬN HÀNH: SỐ ĐỎ = ĐƠN MỚI CẦN XỬ LÝ CẮT TRÒNG | CHẤM CAM = ĐƠN ĐANG MÀI LẮP / ĐANG GIAO -->
+        <?php if (isStaffOrAdmin() && ($tbQuanTri['donMoiCanXuLy'] > 0 || $tbQuanTri['donDangMaiGiao'] > 0 || $tbQuanTri['choKhieuNai'] > 0)): ?>
             <div class="alert alert-warning-banner">
                 <div>
-                    🔔 <strong>Thông báo vận hành Việt MAC:</strong>
-                    <?php if ($tbQuanTri['choThanhToan'] > 0): ?>
-                        Có <strong><?= $tbQuanTri['choThanhToan'] ?></strong> đơn hàng đang chờ duyệt (xác nhận thanh toán QR hoặc yêu cầu hủy đơn).
+                    🔔 <strong>Thông báo đơn hàng Việt MAC:</strong>
+                    <?php if ($tbQuanTri['donMoiCanXuLy'] > 0): ?>
+                        Có <span class="notif-dot"><?= $tbQuanTri['donMoiCanXuLy'] ?></span> đơn mới cần xử lý cắt tròng / duyệt đơn.
+                    <?php endif; ?>
+                    <?php if ($tbQuanTri['donDangMaiGiao'] > 0): ?>
+                        <span class="notif-dot-orange" style="margin-left:6px; vertical-align:middle;"></span> Có <strong><?= $tbQuanTri['donDangMaiGiao'] ?></strong> đơn đang mài lắp hoặc đang giao hàng.
                     <?php endif; ?>
                     <?php if ($tbQuanTri['choKhieuNai'] > 0): ?>
-                        Có <strong><?= $tbQuanTri['choKhieuNai'] ?></strong> khiếu nại mới chờ phản hồi.
+                        <span style="margin-left:6px;">| Có <strong><?= $tbQuanTri['choKhieuNai'] ?></strong> khiếu nại mới chờ phản hồi.</span>
                     <?php endif; ?>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <?php if ($tbQuanTri['choThanhToan'] > 0): ?>
-                        <button class="btn btn-dark btn-sm" onclick="switchTab('admin-orders')">Xem Đơn Chờ Duyệt</button>
+                    <?php if ($tbQuanTri['donMoiCanXuLy'] > 0 || $tbQuanTri['donDangMaiGiao'] > 0): ?>
+                        <button class="btn btn-dark btn-sm" onclick="switchTab('admin-orders')">Xử Lý Đơn Hàng</button>
                     <?php endif; ?>
                     <?php if ($tbQuanTri['choKhieuNai'] > 0): ?>
                         <button class="btn btn-outline btn-sm" onclick="switchTab('admin-complaints')">Xem Khiếu Nại</button>
@@ -231,7 +234,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
             </div>
             <?php endif; ?>
 
-            <div class="section-header">
+            <div class="section-header" id="allProductsHeading">
                 <div>
                     <h2 style="font-size:18px;">Tất Cả Mẫu Kính Tại Việt MAC</h2>
                 </div>
@@ -393,10 +396,12 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                             ?>
                             <tr>
                                 <td data-label="Sản Phẩm">
-                                    <div style="display:flex; align-items:center; gap:10px;">
+                                    <div class="cart-item-clickable" style="display:flex; align-items:center; gap:10px;" 
+                                         title="Nhấn để chỉnh sửa tròng kính hoặc đổi sang chỉ mua gọng"
+                                         onclick='openCartItemEditModal(<?= json_encode($item, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                                         <img src="<?= !empty($item['hinhAnh']) ? 'images/anh_sp/' . htmlspecialchars($item['hinhAnh']) : 'https://via.placeholder.com/80x50?text=MAC' ?>" class="thumb-img" alt="">
                                         <div>
-                                            <strong><?= htmlspecialchars($item['tenSanPham']) ?></strong><br>
+                                            <strong><?= htmlspecialchars($item['tenSanPham']) ?></strong> <span style="font-size:11.5px; color:#2563eb; font-weight:600;">(✏️ Đổi tròng)</span><br>
                                             <small style="color:#64748b;">Gọng: <?= number_format($item['giaGong'], 0, ',', '.') ?> đ</small>
                                         </div>
                                     </div>
@@ -460,7 +465,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </form>
             <?php endif; ?>
 
-            <div class="card" style="margin-bottom:28px;">
+            <div class="card scrollable-list" style="margin-bottom:28px;">
                 <table>
                     <thead>
                         <tr>
@@ -480,9 +485,9 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                             <?php foreach ($dsDonHangKhach as $od): 
                                 $st = $od['trangThaiDon'] ?? 'Đang xử lý';
                                 $daXacNhanTT = in_array($st, ['Đã xác nhận (COD)', 'Đã thanh toán', 'Đang mài lắp', 'Đang giao hàng', 'Đã giao']);
-                                $coTheYeuCauHuy = !in_array($st, ['Đã giao', 'Đã hủy', 'Chờ xác nhận hủy']);
+                                $coTheYeuCauHuy = !in_array($st, ['Đang mài lắp', 'Đang giao hàng', 'Đã giao', 'Đã hủy', 'Chờ xác nhận hủy']);
                             ?>
-                            <tr>
+                            <tr class="order-row-clickable" onclick='openOrderDetailModal(<?= json_encode($od, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                                 <td data-label="Mã Đơn"><strong><?= $od['maDonHang'] ?></strong></td>
                                 <td data-label="Ngày Đặt"><?= date('d/m/Y H:i', strtotime($od['ngayDat'])) ?></td>
                                 <td data-label="Sản Phẩm">
@@ -493,15 +498,15 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                 <td data-label="Tổng Tiền"><strong><?= number_format($od['tongTien'], 0, ',', '.') ?> đ</strong></td>
                                 <td data-label="Thanh Toán"><?= htmlspecialchars($od['phuongThuc'] ?? 'COD') ?></td>
                                 <td data-label="Trạng Thái">
-                                    <?php if (in_array($st, ['Chờ xác nhận thanh toán', 'Chờ xác nhận hủy'])): ?>
-                                        <span class="status-badge status-warning"><?= htmlspecialchars($st) ?></span>
-                                    <?php elseif ($st === 'Đã hủy'): ?>
+                                    <?php if ($st === 'Đã hủy'): ?>
                                         <span class="status-badge status-stopped"><?= htmlspecialchars($st) ?></span>
-                                    <?php else: ?>
+                                    <?php elseif ($st === 'Đã giao'): ?>
                                         <span class="status-badge status-active"><?= htmlspecialchars($st) ?></span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-processing"><?= htmlspecialchars($st) ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td data-label="Thao Tác">
+                                <td data-label="Thao Tác" onclick="event.stopPropagation()">
                                     <div class="action-group">
                                         <button type="button" class="btn btn-outline btn-sm"
                                                 onclick='openOrderDetailModal(<?= json_encode($od, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Xem chi tiết</button>
@@ -605,7 +610,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -688,7 +693,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -744,7 +749,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -768,7 +773,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                 $isCancelled = ($st === 'Đã hủy');
                                 $searchOd = $od['maDonHang'] . ' ' . $od['tenNN'] . ' ' . $od['soDienThoai'] . ' ' . $st;
                             ?>
-                            <tr data-search="<?= htmlspecialchars($searchOd) ?>">
+                            <tr class="order-row-clickable" data-search="<?= htmlspecialchars($searchOd) ?>" onclick='openOrderDetailModal(<?= json_encode($od, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                                 <td data-label="Mã Đơn">
                                     <strong><?= $od['maDonHang'] ?></strong><br>
                                     <small style="color:#64748b;"><?= date('d/m H:i', strtotime($od['ngayDat'])) ?></small>
@@ -791,11 +796,11 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                 </td>
                                 <td data-label="Thanh Toán"><?= htmlspecialchars($od['phuongThuc'] ?? 'COD') ?></td>
                                 <td data-label="Trạng Thái">
-                                    <span class="status-badge <?= ($isPendingQR || $isPendingCancel) ? 'status-warning' : ($isCancelled ? 'status-stopped' : 'status-active') ?>">
+                                    <span class="status-badge <?= $isCancelled ? 'status-stopped' : ($st === 'Đã giao' ? 'status-active' : 'status-processing') ?>">
                                         <?= htmlspecialchars($st) ?>
                                     </span>
                                 </td>
-                                <td data-label="Thao Tác">
+                                <td data-label="Thao Tác" onclick="event.stopPropagation()">
                                     <div style="display:flex; flex-direction:column; gap:6px;">
                                         <?php if ($isPendingQR): ?>
                                             <a href="xuly/donhang_action.php?action=confirm_payment&id=<?= $od['maDonHang'] ?>" 
@@ -825,7 +830,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                                                 ✏️ Sửa đơn
                                             </button>
 
-                                            <?php if (!$isCancelled && !$isPendingCancel && $st !== 'Đã giao'): ?>
+                                            <?php if (!$isCancelled && !$isPendingCancel && !in_array($st, ['Đang mài lắp', 'Đang giao hàng', 'Đã giao'])): ?>
                                                 <a href="xuly/donhang_action.php?action=admin_cancel&id=<?= $od['maDonHang'] ?>" 
                                                    class="btn btn-danger btn-sm"
                                                    onclick="return confirm('Bạn chắc chắn muốn đơn phương HỦY đơn hàng <?= $od['maDonHang'] ?>? Tồn kho sẽ tự động được hoàn lại.')">
@@ -944,9 +949,41 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <button type="button" class="btn btn-outline btn-sm" onclick="addPosItemRow()">+ Thêm dòng sản phẩm</button>
                     </div>
 
+                    <!-- Nhập Độ Mắt (SPH / CYL / AXIS / PD) tại quầy để lưu vào KETQUADOMAT -->
+                    <div class="form-group" style="margin-top:14px;">
+                        <label>3. Thông số độ mắt của khách (Lưu vào KETQUADOMAT):</label>
+                        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:6px; margin-bottom:10px;">
+                            <label style="font-weight:500; cursor:pointer;">
+                                <input type="radio" name="posCoDoMat" value="no_rx" checked onchange="togglePosRxFields()"> Kính không độ / Không nhập độ
+                            </label>
+                            <label style="font-weight:600; cursor:pointer; color:#1d4ed8;">
+                                <input type="radio" name="posCoDoMat" value="with_rx" onchange="togglePosRxFields()"> Nhập độ mắt cắt tròng (SPH / CYL / AXIS / PD)
+                            </label>
+                        </div>
+
+                        <div id="posRxFieldsBox" class="form-grid" style="display:none; background:#eff6ff; padding:14px; border-radius:10px; border:1px solid #bfdbfe;">
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Mắt Phải (OD) — Độ cận/viễn (SPH)</label>
+                                <input type="text" name="posSphOD" placeholder="VD: -2.50">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Mắt Trái (OS) — Độ cận/viễn (SPH)</label>
+                                <input type="text" name="posSphOS" placeholder="VD: -2.75">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Độ loạn (CYL) &amp; Trục (AXIS)</label>
+                                <input type="text" name="posCylAxis" placeholder="VD: -0.50 / 180">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label>Khoảng cách đồng tử (PD - mm)</label>
+                                <input type="number" name="posPD" placeholder="VD: 62">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-grid" style="margin-top:14px;">
                         <div class="form-group">
-                            <label>3. Chọn mã Voucher khuyến mãi đang hiệu lực:</label>
+                            <label>4. Chọn mã Voucher khuyến mãi đang hiệu lực:</label>
                             <select id="posVoucherSelect" name="voucherCode" onchange="recalcPosTotal()">
                                 <option value="" data-min="0" data-type="" data-val="0">-- Không áp dụng Voucher --</option>
                                 <?php 
@@ -971,7 +1008,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         </div>
 
                         <div class="form-group">
-                            <label>4. Hình thức thu tiền tại quầy:</label>
+                            <label>5. Hình thức thu tiền tại quầy:</label>
                             <select name="phuongThuc">
                                 <option value="Tiền mặt tại quầy">Tiền mặt tại quầy</option>
                                 <option value="Chuyển khoản QR">Chuyển khoản QR Techcombank</option>
@@ -1008,7 +1045,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -1086,7 +1123,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -1145,7 +1182,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:24px;">
+            <div class="card scrollable-list" style="margin-bottom:24px;">
                 <table>
                     <thead>
                         <tr>
@@ -1162,14 +1199,16 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <?php foreach ($dsKhachHang as $kh): 
                             $searchKh = $kh['maKhachHang'] . ' ' . $kh['hoTen'] . ' ' . $kh['email'] . ' ' . $kh['soDienThoai'];
                         ?>
-                        <tr data-search="<?= htmlspecialchars($searchKh) ?>">
+                        <tr class="entity-row-clickable" title="Nhấn để xem chi tiết khách hàng & các đơn đã mua"
+                            data-search="<?= htmlspecialchars($searchKh) ?>" 
+                            onclick='openCustomerDetailModal(<?= json_encode($kh, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                             <td data-label="Mã KH"><strong><?= $kh['maKhachHang'] ?></strong></td>
                             <td data-label="Họ Tên"><strong><?= htmlspecialchars($kh['hoTen']) ?></strong></td>
                             <td data-label="Email"><?= htmlspecialchars($kh['email']) ?></td>
                             <td data-label="SĐT"><?= htmlspecialchars($kh['soDienThoai']) ?></td>
                             <td data-label="Địa Chỉ"><?= htmlspecialchars($kh['diaChi'] ?? '-') ?></td>
                             <td data-label="Đơn Đã Đặt"><?= (int)$kh['soDonHang'] ?> đơn (<?= number_format($kh['tongChiTieu'], 0, ',', '.') ?> đ)</td>
-                            <td data-label="Thao Tác">
+                            <td data-label="Thao Tác" onclick="event.stopPropagation()">
                                 <div class="action-group">
                                     <button class="btn btn-outline btn-sm" onclick='openCustomerEditModal(<?= json_encode($kh, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
                                     <a href="xuly/khachhang_action.php?action=delete&id=<?= $kh['maNguoiDung'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Xóa tài khoản khách hàng <?= htmlspecialchars($kh['hoTen']) ?>?')">Xóa</a>
@@ -1187,7 +1226,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     <h3>Danh Sách Số Điện Thoại Khách Vãng Lai</h3>
                 </div>
             </div>
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -1230,7 +1269,7 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card scrollable-list">
                 <table>
                     <thead>
                         <tr>
@@ -1243,12 +1282,14 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                     </thead>
                     <tbody id="tbodyAdminStaff">
                         <?php foreach ($dsNhanVien as $nv): ?>
-                        <tr data-search="<?= htmlspecialchars($nv['maNguoiDung'] . ' ' . $nv['hoTen'] . ' ' . $nv['email']) ?>">
+                        <tr class="entity-row-clickable" title="Nhấn để xem chi tiết đơn đã tạo & khiếu nại nhân viên đã xử lý"
+                            data-search="<?= htmlspecialchars($nv['maNguoiDung'] . ' ' . $nv['hoTen'] . ' ' . $nv['email']) ?>" 
+                            onclick='openStaffDetailModal(<?= json_encode($nv, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>
                             <td data-label="Mã ND"><strong><?= $nv['maNguoiDung'] ?></strong></td>
                             <td data-label="Họ Tên"><?= htmlspecialchars($nv['hoTen']) ?></td>
                             <td data-label="Email"><?= htmlspecialchars($nv['email']) ?></td>
                             <td data-label="Vai Trò"><span class="role-tag">Nhân Viên (VT02)</span></td>
-                            <td data-label="Thao Tác">
+                            <td data-label="Thao Tác" onclick="event.stopPropagation()">
                                 <div class="action-group">
                                     <button class="btn btn-outline btn-sm" onclick='openStaffModal("edit", <?= json_encode($nv, JSON_HEX_APOS | JSON_HEX_QUOT) ?>)'>Sửa</button>
                                     <a href="xuly/nhanvien_action.php?action=delete&id=<?= $nv['maNguoiDung'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Xóa nhân viên <?= htmlspecialchars($nv['hoTen']) ?>?')">Xóa</a>
@@ -1287,9 +1328,14 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 <button type="button" class="sidebar-nav-item <?= $activeTab === 'admin-orders' ? 'active' : '' ?>" 
                         onclick="switchTab('admin-orders', this)">
                     <span>📋 Quản Lý Đơn Hàng</span>
-                    <?php if ($tbQuanTri['choThanhToan'] > 0): ?>
-                        <span class="notif-dot"><?= $tbQuanTri['choThanhToan'] ?></span>
-                    <?php endif; ?>
+                    <span class="notif-group">
+                        <?php if ($tbQuanTri['donDangMaiGiao'] > 0): ?>
+                            <span class="notif-dot-orange" title="Có đơn đang mài lắp hoặc đang giao hàng"></span>
+                        <?php endif; ?>
+                        <?php if ($tbQuanTri['donMoiCanXuLy'] > 0): ?>
+                            <span class="notif-dot" title="Đơn mới cần xử lý cắt tròng / duyệt đơn"><?= $tbQuanTri['donMoiCanXuLy'] ?></span>
+                        <?php endif; ?>
+                    </span>
                 </button>
                 <button type="button" class="sidebar-nav-item <?= $activeTab === 'admin-pos' ? 'active' : '' ?>" 
                         onclick="switchTab('admin-pos', this)">
@@ -1348,7 +1394,15 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                         <span id="detailRating" style="font-weight:700; color:#d97706; font-size:13.5px;">★ 5.0</span>
                         <span id="detailStockBadge" class="status-badge status-active">Còn hàng</span>
                     </div>
-                    <h2 id="detailPrice" style="font-size:24px; color:#0f172a; margin-bottom:8px;">0 đ</h2>
+                    <div class="detail-price-brand-row">
+                        <h2 id="detailPrice" style="font-size:24px; color:#0f172a; margin:0;">0 đ</h2>
+                        <button type="button" id="detailBrandIconBtn" class="brand-icon-trigger" title="Nhấn vào logo để xem tất cả kính của thương hiệu này">
+                            <img id="detailBrandLogo" src="" alt="Logo">
+                            <span id="detailBrandFallback" class="brand-icon-fallback" style="display:none;">MAC</span>
+                        </button>
+                    </div>
+                    <p id="detailBrandDesc" style="font-size:12px; color:#64748b; margin-bottom:8px;"></p>
+
                     <p id="detailDesc" style="font-size:13px; color:#475569; margin-bottom:12px;"></p>
 
                     <h4 style="font-size:13px; text-transform:uppercase; color:#334155; margin-bottom:6px;">📋 Bảng Thông Số Kỹ Thuật Chi Tiết</h4>
@@ -1792,8 +1846,13 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
                 </thead>
                 <tbody id="odItemsBody"></tbody>
             </table>
-            <div style="text-align:right; margin-top:14px; font-size:17px;">
-                Tổng thanh toán: <strong id="odTotalAmount">0 đ</strong>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0;">
+                <button type="button" class="btn btn-dark btn-sm no-print" onclick="window.print()">
+                    🖨️ In Đơn Hàng / Phiếu Kỹ Thuật
+                </button>
+                <div style="font-size:17px;">
+                    Tổng thanh toán: <strong id="odTotalAmount">0 đ</strong>
+                </div>
             </div>
         </div>
     </div>
@@ -2113,8 +2172,181 @@ $activeTab = $_GET['tab'] ?? (isStaffOrAdmin() ? 'admin-product' : 'shop-view');
         </div>
     </div>
 
+
+    <!-- =================================================================
+         MODAL I: CHỈNH SỬA TRÒNG KÍNH / ĐỘ MẮT CỦA SẢN PHẨM TRONG GIỎ HÀNG
+         ================================================================= -->
+    <div id="editCartItemModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 560px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="editCartTitle">Tùy Chỉnh Gọng &amp; Tròng Kính</h3>
+                    <p id="editCartFramePriceText" style="font-size:12.5px; color:#64748b;"></p>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('editCartItemModal')">✕</button>
+            </div>
+            <form action="xuly/giohang_action.php" method="POST">
+                <input type="hidden" name="action" value="edit_cart_item">
+                <input type="hidden" name="oldCartKey" id="editCartOldKey">
+
+                <div class="form-group">
+                    <label>1. Chọn hình thức cắt kính:</label>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+                        <label class="option-box" style="margin-bottom:0; justify-content:flex-start; gap:8px;">
+                            <input type="radio" name="loaiNhuCau" value="frame_only" onchange="toggleCartEditMode()" style="width:auto;">
+                            <div>
+                                <strong>Chỉ mua riêng gọng kính (Bỏ tròng kính)</strong>
+                                <p style="font-size:12px; color:#64748b;">Chỉ tính tiền gọng kính, không lắp tròng</p>
+                            </div>
+                        </label>
+                        <label class="option-box" style="margin-bottom:0; justify-content:flex-start; gap:8px;">
+                            <input type="radio" name="loaiNhuCau" value="no_rx" onchange="toggleCartEditMode()" style="width:auto;">
+                            <div>
+                                <strong>Lắp tròng không độ (Chống ánh sáng xanh / Tia UV)</strong>
+                                <p style="font-size:12px; color:#64748b;">Chọn loại chiết suất &amp; lớp phủ bảo vệ mắt</p>
+                            </div>
+                        </label>
+                        <label class="option-box" style="margin-bottom:0; justify-content:flex-start; gap:8px;">
+                            <input type="radio" name="loaiNhuCau" value="with_rx" onchange="toggleCartEditMode()" style="width:auto;">
+                            <div>
+                                <strong>Lắp tròng kính có độ (Cận / Viễn / Loạn thị)</strong>
+                                <p style="font-size:12px; color:#64748b;">Nhập hoặc chỉnh sửa thông số SPH, CYL, AXIS, PD</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="editCartRxBox" class="form-grid" style="display:none; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Mắt Phải (OD) - SPH</label>
+                        <input type="text" name="sphOD" id="editCartSphOD" placeholder="VD: -2.50">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Mắt Trái (OS) - SPH</label>
+                        <input type="text" name="sphOS" id="editCartSphOS" placeholder="VD: -2.75">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Độ loạn (CYL) &amp; Trục (AXIS)</label>
+                        <input type="text" name="cylAxis" id="editCartCylAxis" placeholder="VD: -0.50 / 180">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Khoảng cách đồng tử (PD - mm)</label>
+                        <input type="number" name="pd" id="editCartPD" placeholder="VD: 62">
+                    </div>
+                </div>
+
+                <div id="editCartLensBox" class="form-group" style="display:none;">
+                    <label>2. Chọn loại tròng kính:</label>
+                    <select name="maTrongKinh" id="editCartLensSelect" onchange="recalcCartEditPrice()">
+                        <?php foreach ($dsTrongKinh as $tk): ?>
+                            <option value="<?= $tk['maTrongKinh'] ?>" data-price="<?= $tk['gia'] ?>">
+                                <?= htmlspecialchars($tk['loai']) ?> — Chiết suất <?= $tk['chietSuat'] ?> (+<?= number_format($tk['gia'], 0, ',', '.') ?> đ)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid #e2e8f0;">
+                    <div>
+                        <span style="font-size:12.5px; color:#64748b;">Đơn giá mới (1 chiếc):</span>
+                        <h3 id="editCartNewUnitTotal">0 đ</h3>
+                    </div>
+                    <button type="submit" class="btn btn-dark">✓ Cập Nhật Giỏ Hàng</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- =================================================================
+         MODAL J: CHI TIẾT KHÁCH HÀNG & DANH SÁCH ĐƠN HÀNG ĐÃ MUA
+         ================================================================= -->
+    <div id="customerDetailModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 760px;">
+            <div class="modal-header">
+                <h3 id="custDetailTitle">Chi Tiết Khách Hàng</h3>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('customerDetailModal')">✕</button>
+            </div>
+            <div id="custDetailInfo" style="font-size:13.5px; margin-bottom:16px;"></div>
+            <h4 style="margin-bottom:8px;">📦 Lịch Sử Đơn Hàng Đã Mua (Nhấn vào đơn để xem chi tiết &amp; độ mắt)</h4>
+            <div class="card scrollable-list" style="max-height:280px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Đơn</th>
+                            <th>Ngày Đặt</th>
+                            <th>Sản Phẩm</th>
+                            <th>Tổng Tiền</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="custDetailOrdersBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- =================================================================
+         MODAL K: CHI TIẾT HOẠT ĐỘNG NHÂN VIÊN (ĐƠN ĐÃ TẠO & KHIẾU NẠI XỬ LÝ)
+         ================================================================= -->
+    <div id="staffDetailModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 780px;">
+            <div class="modal-header">
+                <h3 id="staffDetailTitle">Chi Tiết Hoạt Động Nhân Viên</h3>
+                <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('staffDetailModal')">✕</button>
+            </div>
+            <div id="staffDetailInfo" style="font-size:13.5px; margin-bottom:16px;"></div>
+
+            <h4 style="margin-bottom:8px;">🧾 Đơn Hàng Đã Tạo Tại Quầy &amp; Khách Hàng Đã Bán (Nhấn vào đơn để xem chi tiết)</h4>
+            <div class="card scrollable-list" style="max-height:190px; margin-bottom:16px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Đơn</th>
+                            <th>Bán Cho Khách Hàng</th>
+                            <th>Tổng Tiền</th>
+                            <th>Thời Gian Tạo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffOrdersBody"></tbody>
+                </table>
+            </div>
+
+            <h4 style="margin-bottom:8px;">📦 Đơn Hàng Đã Xử Lý (Xác Nhận Thanh Toán / Mài Lắp / Giao Hàng / Duyệt Hủy)</h4>
+            <div class="card scrollable-list" style="max-height:190px; margin-bottom:16px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Đơn</th>
+                            <th>Khách Hàng</th>
+                            <th>Thao Tác Xử Lý</th>
+                            <th>Thời Gian</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffProcessedOrdersBody"></tbody>
+                </table>
+            </div>
+
+            <h4 style="margin-bottom:8px;">💬 Danh Sách Khiếu Nại Đã Phản Hồi Xử Lý</h4>
+            <div class="card scrollable-list" style="max-height:200px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã KN</th>
+                            <th>Nội Dung Xử Lý</th>
+                            <th>Thời Gian</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffComplaintsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.PRODUCTS_MAP = <?= json_encode($productsMap, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+        window.CURRENT_MA_KH = <?= json_encode($maKhachHienTai) ?>;
+        window.ALL_ADMIN_ORDERS = <?= json_encode($dsDonHangQuanTri, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
     </script>
     <script src="js/main.js"></script>
 </body>

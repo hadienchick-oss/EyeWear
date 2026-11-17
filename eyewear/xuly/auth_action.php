@@ -27,7 +27,6 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'tenVaiTro'   => $user['tenVaiTro']
         ];
 
-        // Đồng bộ giỏ hàng Session vào bảng GIOHANG & CHITIETGIOHANG nếu là Khách hàng
         if (!empty($user['maKhachHang']) && !empty($_SESSION['cart'])) {
             dongBoGioHangVaoDB($conn, $user['maKhachHang']);
         }
@@ -40,13 +39,13 @@ if ($action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 2. ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG
+// 2. ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (KIỂM TRA TRÙNG SĐT & GỘP ĐƠN VÃNG LAI)
 if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $hoTen       = trim($_POST['hoTen'] ?? '');
     $email       = trim($_POST['email'] ?? '');
     $matKhau     = trim($_POST['matKhau'] ?? '');
-    $soDienThoai = trim($_POST['soDienThoai'] ?? '');
-    $gioiTinh    = $_POST['gioiTinh'] ?? null;
+    $soDienThoai = preg_replace('/\s+/', '', trim($_POST['soDienThoai'] ?? ''));
+    $gioiTinh    = $_POST['gioiTinh'] ?? 'Nam';
     $ngaySinh    = !empty($_POST['ngaySinh']) ? $_POST['ngaySinh'] . ' 00:00:00' : null;
     $diaChi      = trim($_POST['diaChi'] ?? '');
 
@@ -59,12 +58,19 @@ if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $stmtEmail = $conn->prepare("SELECT COUNT(*) FROM NGUOIDUNG WHERE email = ?");
         $stmtEmail->execute([$email]);
+        if ($stmtEmail->fetchColumn() > 0) {
+            $_SESSION['err'] = "Email [$email] đã được đăng ký, vui lòng dùng email khác hoặc đăng nhập!";
+            header("Location: ../index.php");
+            exit;
+        }
 
-        $stmtPhone = $conn->prepare("SELECT COUNT(*) FROM KHACHHANG WHERE soDienThoai = ?");
+        // Kiểm tra trùng SĐT trong bảng KHACHHANG: nếu đã có SĐT này thì không tạo trùng 2 tài khoản cùng SĐT!
+        $stmtPhone = $conn->prepare("SELECT kh.maKhachHang, nd.email FROM KHACHHANG kh JOIN NGUOIDUNG nd ON kh.maNguoiDung = nd.maNguoiDung WHERE REPLACE(kh.soDienThoai, ' ', '') = ? LIMIT 1");
         $stmtPhone->execute([$soDienThoai]);
+        $existingCustomer = $stmtPhone->fetch();
 
-        if ($stmtEmail->fetchColumn() > 0 || $stmtPhone->fetchColumn() > 0) {
-            $_SESSION['err'] = "Email hoặc Số điện thoại đã được đăng ký, vui lòng kiểm tra lại!";
+        if ($existingCustomer) {
+            $_SESSION['err'] = "Số điện thoại [$soDienThoai] đã thuộc về tài khoản thành viên (" . $existingCustomer['email'] . "). Vui lòng đăng nhập để xem tất cả đơn hàng của bạn!";
             header("Location: ../index.php");
             exit;
         }
@@ -72,16 +78,15 @@ if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->beginTransaction();
 
         $maND = taoMaTuDong($conn, 'NGUOIDUNG', 'maNguoiDung', 'ND');
-        $matKhauMaHoa = md5($matKhau);
         $conn->prepare("INSERT INTO NGUOIDUNG (maNguoiDung, hoTen, email, matKhau, maVaiTro) VALUES (?, ?, ?, ?, 'VT03')")
-             ->execute([$maND, $hoTen, $email, $matKhauMaHoa]);
+             ->execute([$maND, $hoTen, $email, md5($matKhau)]);
 
         $maKH = taoMaTuDong($conn, 'KHACHHANG', 'maKhachHang', 'KH');
         $conn->prepare("INSERT INTO KHACHHANG (maKhachHang, maNguoiDung, gioiTinh, ngaySinh, soDienThoai, diaChi) VALUES (?, ?, ?, ?, ?, ?)")
              ->execute([$maKH, $maND, $gioiTinh, $ngaySinh, $soDienThoai, $diaChi]);
 
-        // Gộp đơn hàng vãng lai trước đó (nếu trùng SĐT) về tài khoản thành viên mới
-        $conn->prepare("UPDATE DONHANG SET maKhachHang = ? WHERE soDienThoai = ? AND maKhachHang IS NULL")
+        // Gộp toàn bộ đơn hàng vãng lai trước đó có cùng SĐT vào maKhachHang này
+        $conn->prepare("UPDATE DONHANG SET maKhachHang = ? WHERE REPLACE(soDienThoai, ' ', '') = ? AND maKhachHang IS NULL")
              ->execute([$maKH, $soDienThoai]);
 
         $conn->commit();
@@ -94,7 +99,7 @@ if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'maVaiTro'    => 'VT03',
             'tenVaiTro'   => 'KhachHang'
         ];
-        $_SESSION['msg'] = "Đăng ký tài khoản thành viên thành công! Chào mừng $hoTen đến với Việt MAC.";
+        $_SESSION['msg'] = "Đăng ký tài khoản thành công! Toàn bộ đơn hàng gắn với SĐT $soDienThoai đã được đồng bộ.";
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
         $_SESSION['err'] = "Lỗi đăng ký tài khoản: " . $e->getMessage();
@@ -103,7 +108,7 @@ if ($action === 'register' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// 3. CẬP NHẬT THÔNG TIN CÁ NHÂN (Bấm vào tên trên thanh Menu -> Sửa thông tin)
+// 3. CẬP NHẬT THÔNG TIN CÁ NHÂN (CHẶN TRÙNG EMAIL & SĐT)
 if ($action === 'update_profile' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isLogged()) {
         $_SESSION['err'] = "Vui lòng đăng nhập để thực hiện thao tác này!";
@@ -117,13 +122,25 @@ if ($action === 'update_profile' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $matKhauMoi = trim($_POST['matKhauMoi'] ?? '');
 
     try {
-        // Kiểm tra trùng Email với người dùng khác
         $checkEmail = $conn->prepare("SELECT COUNT(*) FROM NGUOIDUNG WHERE email = ? AND maNguoiDung != ?");
         $checkEmail->execute([$email, $maND]);
         if ($checkEmail->fetchColumn() > 0) {
             $_SESSION['err'] = "Email [$email] đã được tài khoản khác sử dụng!";
             header("Location: ../index.php");
             exit;
+        }
+
+        $maKH = layMaKhachHangHienTai($conn);
+        $soDienThoai = preg_replace('/\s+/', '', trim($_POST['soDienThoai'] ?? ''));
+
+        if ($maKH && $soDienThoai !== '') {
+            $checkPhone = $conn->prepare("SELECT COUNT(*) FROM KHACHHANG WHERE REPLACE(soDienThoai, ' ', '') = ? AND maKhachHang != ?");
+            $checkPhone->execute([$soDienThoai, $maKH]);
+            if ($checkPhone->fetchColumn() > 0) {
+                $_SESSION['err'] = "Số điện thoại [$soDienThoai] đã được sử dụng bởi một tài khoản khách hàng khác!";
+                header("Location: ../index.php");
+                exit;
+            }
         }
 
         $conn->beginTransaction();
@@ -136,16 +153,17 @@ if ($action === 'update_profile' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                  ->execute([$hoTen, $email, $maND]);
         }
 
-        // Nếu có hồ sơ trong bảng KHACHHANG thì cập nhật luôn thông tin giao hàng mặc định
-        $maKH = layMaKhachHangHienTai($conn);
         if ($maKH) {
-            $soDienThoai = trim($_POST['soDienThoai'] ?? '');
             $gioiTinh = $_POST['gioiTinh'] ?? 'Nam';
             $ngaySinh = !empty($_POST['ngaySinh']) ? $_POST['ngaySinh'] . ' 00:00:00' : null;
             $diaChi = trim($_POST['diaChi'] ?? '');
 
             $conn->prepare("UPDATE KHACHHANG SET gioiTinh = ?, ngaySinh = ?, soDienThoai = ?, diaChi = ? WHERE maKhachHang = ?")
                  ->execute([$gioiTinh, $ngaySinh, $soDienThoai, $diaChi, $maKH]);
+
+            // Gộp thêm đơn hàng cũ cùng SĐT nếu có
+            $conn->prepare("UPDATE DONHANG SET maKhachHang = ? WHERE REPLACE(soDienThoai, ' ', '') = ? AND maKhachHang IS NULL")
+                 ->execute([$maKH, $soDienThoai]);
         }
 
         $conn->commit();
@@ -169,9 +187,6 @@ if ($action === 'logout') {
     exit;
 }
 
-/**
- * Hàm phụ trợ đồng bộ $_SESSION['cart'] vào bảng GIOHANG & CHITIETGIOHANG
- */
 function dongBoGioHangVaoDB($conn, $maKhachHang) {
     $stmtGH = $conn->prepare("SELECT maGioHang FROM GIOHANG WHERE maKhachHang = ? LIMIT 1");
     $stmtGH->execute([$maKhachHang]);
@@ -184,7 +199,6 @@ function dongBoGioHangVaoDB($conn, $maKhachHang) {
 
     $conn->prepare("DELETE FROM CHITIETGIOHANG WHERE maGioHang = ?")->execute([$maGH]);
 
-    // Gom số lượng theo maSanPham để lưu vào CHITIETGIOHANG
     $tongHopSP = [];
     foreach ($_SESSION['cart'] as $item) {
         $msp = $item['maSanPham'];

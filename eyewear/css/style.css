@@ -1003,3 +1003,215 @@ th {
         border: none;
     }
 }
+
+
+/* =========================================================
+   9. THANH CUỘN DỌC KHI DANH SÁCH DÀI + CHI TIẾT HÃNG + CHI TIẾT ĐƠN
+   ========================================================= */
+.card.scrollable-list {
+    max-height: 460px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.card.scrollable-list thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8fafc;
+    box-shadow: 0 1px 0 #e2e8f0;
+}
+
+/* Khung thông tin Thương hiệu bên trong Chi tiết sản phẩm */
+.brand-detail-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.brand-detail-box:hover {
+    background: #f1f5f9;
+    border-color: #0f172a;
+}
+
+.brand-detail-box img {
+    width: 54px;
+    height: 38px;
+    object-fit: contain;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px;
+    flex-shrink: 0;
+}
+
+/* Dòng đơn hàng bấm vào mở Chi tiết cắt kính */
+tr.order-row-clickable {
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+tr.order-row-clickable:hover {
+    background: #f1f5f9;
+}
+
+.rx-spec-pill {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+
+/* =========================================================
+   10. LOGO THƯƠNG HIỆU NHỎ NHƯ ICON BÊN PHẢI NGANG GIÁ THÀNH + IN ĐƠN
+   ========================================================= */
+.detail-price-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.brand-icon-trigger {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.brand-icon-trigger:hover {
+    transform: scale(1.08);
+    border-color: #0f172a;
+}
+
+.brand-icon-trigger img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    display: block;
+}
+
+.brand-icon-fallback {
+    font-size: 11px;
+    font-weight: 800;
+    color: #0f172a;
+    text-transform: uppercase;
+}
+
+.cart-item-clickable {
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+}
+.cart-item-clickable:hover {
+    background: #f1f5f9;
+}
+
+.rx-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #1e3a8a;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #orderDetailModal, #orderDetailModal * {
+        visibility: visible;
+    }
+    #orderDetailModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff !important;
+        padding: 0 !important;
+    }
+    #orderDetailModal .modal-box {
+        box-shadow: none !important;
+        max-width: 100% !important;
+        padding: 10px !important;
+    }
+    .no-print {
+        display: none !important;
+    }
+}
+
+
+/* =========================================================
+   11. TRẠNG THÁI 3 MÀU CHUẨN & CHẤM CAM ĐƠN ĐANG MÀI LẮP / GIAO HÀNG
+   ========================================================= */
+.status-badge.status-stopped {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fecaca;
+}
+
+.status-badge.status-active {
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0;
+}
+
+.status-badge.status-processing,
+.status-badge.status-warning,
+.status-badge.status-info {
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe;
+}
+
+.notif-dot-orange {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #f97316;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+    flex-shrink: 0;
+}
+
+.notif-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.entity-row-clickable {
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.entity-row-clickable:hover {
+    background: #f1f5f9;
+}

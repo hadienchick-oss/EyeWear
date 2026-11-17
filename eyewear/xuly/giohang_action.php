@@ -34,14 +34,13 @@ function syncDbCartIfLogged($conn) {
     }
 }
 
-// 1. THÊM SẢN PHẨM VÀO GIỎ HÀNG (Gọng kính đơn lẻ hoặc Gọng + Tròng kính + Độ mắt)
+// 1. THÊM SẢN PHẨM VÀO GIỎ HÀNG (Ở lại trang Cửa Hàng, không tự nhảy sang trang Giỏ hàng)
 if ($action === 'add_to_cart' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $maSP = $_POST['maSanPham'] ?? '';
     $maTrongKinh = trim($_POST['maTrongKinh'] ?? '');
     $soLuong = max(1, (int)($_POST['soLuong'] ?? 1));
     $ghiChuDoMat = trim($_POST['ghiChuDoMat'] ?? '');
 
-    // Truy vấn thông tin sản phẩm & kiểm tra tồn khả dụng
     $stmtSP = $conn->prepare("SELECT sp.*, th.tenThuongHieu,
                                      (SELECT hinhAnh FROM ANHSP a WHERE a.maSanPham = sp.maSanPham ORDER BY a.anhChinh DESC, a.maAnh ASC LIMIT 1) AS hinhAnh,
                                      COALESCE(tk.soLuong, 0) AS soLuongTon,
@@ -55,14 +54,14 @@ if ($action === 'add_to_cart' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$sp || $sp['trangThai'] !== 'Đang bán') {
         $_SESSION['err'] = "Sản phẩm này hiện không khả dụng để đặt mua!";
-        header("Location: ../index.php");
+        header("Location: ../index.php?tab=shop-view");
         exit;
     }
 
     $tonKhaDung = (int)$sp['soLuongTon'] - (int)$sp['soLuongDat'];
     if ($tonKhaDung < $soLuong) {
         $_SESSION['err'] = "Rất tiếc, số lượng sản phẩm trong kho chỉ còn $tonKhaDung chiếc!";
-        header("Location: ../index.php");
+        header("Location: ../index.php?tab=shop-view");
         exit;
     }
 
@@ -82,6 +81,7 @@ if ($action === 'add_to_cart' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Lưu độ mắt vào bảng KETQUADOMAT nếu khách đã đăng nhập và có nhập độ mắt
     $maKH = layMaKhachHangHienTai($conn);
+    $maKQ = null;
     if ($maKH && $ghiChuDoMat !== '' && $ghiChuDoMat !== 'Kính không độ') {
         $maKQ = taoMaTuDong($conn, 'KETQUADOMAT', 'maKetQuaDo', 'KQ');
         $conn->prepare("INSERT INTO KETQUADOMAT (maKetQuaDo, maKhachHang, ngayDo, ketQua) VALUES (?, ?, NOW(), ?)")
@@ -93,29 +93,30 @@ if ($action === 'add_to_cart' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $newQty = $_SESSION['cart'][$cartKey]['soLuong'] + $soLuong;
         if ($newQty > $tonKhaDung) {
             $_SESSION['err'] = "Số lượng trong giỏ vượt quá tồn kho khả dụng ($tonKhaDung chiếc)!";
-            header("Location: ../index.php?tab=cart-view");
+            header("Location: ../index.php?tab=shop-view");
             exit;
         }
         $_SESSION['cart'][$cartKey]['soLuong'] = $newQty;
     } else {
         $_SESSION['cart'][$cartKey] = [
-            'cartKey'     => $cartKey,
-            'maSanPham'   => $maSP,
-            'tenSanPham'  => $sp['tenSanPham'],
+            'cartKey'      => $cartKey,
+            'maSanPham'    => $maSP,
+            'tenSanPham'   => $sp['tenSanPham'],
             'tenThuongHieu'=> $sp['tenThuongHieu'] ?? 'Việt MAC',
-            'hinhAnh'     => $sp['hinhAnh'] ?? '',
-            'giaGong'     => (float)$sp['gia'],
-            'maTrongKinh' => $maTrongKinh ?: null,
-            'tenTrong'    => $tenTrong,
-            'giaTrong'    => $giaTrong,
-            'ghiChuDoMat' => $ghiChuDoMat,
-            'soLuong'     => $soLuong
+            'hinhAnh'      => $sp['hinhAnh'] ?? '',
+            'giaGong'      => (float)$sp['gia'],
+            'maTrongKinh'  => $maTrongKinh ?: null,
+            'tenTrong'     => $tenTrong,
+            'giaTrong'     => $giaTrong,
+            'ghiChuDoMat'  => $ghiChuDoMat,
+            'maKetQuaDo'   => $maKQ,
+            'soLuong'      => $soLuong
         ];
     }
 
     syncDbCartIfLogged($conn);
-    $_SESSION['msg'] = "Đã thêm [" . $sp['tenSanPham'] . "] vào giỏ hàng!";
-    header("Location: ../index.php?tab=cart-view");
+    $_SESSION['msg'] = "✓ Đã thêm [" . $sp['tenSanPham'] . "] vào giỏ hàng!";
+    header("Location: ../index.php?tab=shop-view");
     exit;
 }
 
@@ -142,6 +143,83 @@ if ($action === 'update_qty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         syncDbCartIfLogged($conn);
     }
+    header("Location: ../index.php?tab=cart-view");
+    exit;
+}
+
+
+// 2B. CHỈNH SỬA CẤU HÌNH TRÒNG KÍNH / ĐỘ MẮT CỦA MÓN ĐANG CÓ TRONG GIỎ HÀNG (Thêm tròng, đổi tròng hoặc bỏ tròng chỉ lấy gọng)
+if ($action === 'edit_cart_item' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $oldKey = $_POST['oldCartKey'] ?? '';
+    $maTrongKinh = trim($_POST['maTrongKinh'] ?? '');
+    $loaiNhuCau = $_POST['loaiNhuCau'] ?? 'frame_only'; // 'frame_only', 'no_rx', 'with_rx'
+
+    if (!isset($_SESSION['cart'][$oldKey])) {
+        $_SESSION['err'] = "Không tìm thấy sản phẩm cần chỉnh sửa trong giỏ hàng!";
+        header("Location: ../index.php?tab=cart-view");
+        exit;
+    }
+
+    $existingItem = $_SESSION['cart'][$oldKey];
+    $maSP = $existingItem['maSanPham'];
+    $soLuong = (int)$existingItem['soLuong'];
+
+    $tenTrong = 'Chỉ lấy gọng kính (Không tròng)';
+    $giaTrong = 0.0;
+    $ghiChuDoMat = '';
+    $maKQ = null;
+
+    if ($loaiNhuCau === 'frame_only' || $maTrongKinh === '') {
+        $maTrongKinh = '';
+        $tenTrong = 'Chỉ lấy gọng kính (Không tròng)';
+        $giaTrong = 0.0;
+        $ghiChuDoMat = '';
+    } else {
+        $stmtTK = $conn->prepare("SELECT * FROM TRONGKINH WHERE maTrongKinh = ? LIMIT 1");
+        $stmtTK->execute([$maTrongKinh]);
+        $tk = $stmtTK->fetch();
+        if ($tk) {
+            $tenTrong = $tk['loai'] . ' (Chiết suất ' . $tk['chietSuat'] . ' - ' . $tk['tinhNang'] . ')';
+            $giaTrong = (float)$tk['gia'];
+        } else {
+            $maTrongKinh = '';
+        }
+
+        if ($loaiNhuCau === 'with_rx') {
+            $od = trim($_POST['sphOD'] ?? '') ?: '0.00';
+            $os = trim($_POST['sphOS'] ?? '') ?: '0.00';
+            $cyl = trim($_POST['cylAxis'] ?? '') ?: 'Không loạn';
+            $pd = trim($_POST['pd'] ?? '') ?: '62';
+            $ghiChuDoMat = "OD(Phải): $od | OS(Trái): $os | Loạn/Trục: $cyl | PD: {$pd}mm";
+
+            $maKH = layMaKhachHangHienTai($conn);
+            if ($maKH) {
+                $maKQ = taoMaTuDong($conn, 'KETQUADOMAT', 'maKetQuaDo', 'KQ');
+                $conn->prepare("INSERT INTO KETQUADOMAT (maKetQuaDo, maKhachHang, ngayDo, ketQua) VALUES (?, ?, NOW(), ?)")
+                     ->execute([$maKQ, $maKH, $ghiChuDoMat]);
+            }
+        } else {
+            $ghiChuDoMat = 'Kính không độ';
+        }
+    }
+
+    $newKey = $maSP . '_' . ($maTrongKinh ?: 'FRAME') . '_' . md5($ghiChuDoMat);
+    unset($_SESSION['cart'][$oldKey]);
+
+    if (isset($_SESSION['cart'][$newKey])) {
+        $_SESSION['cart'][$newKey]['soLuong'] += $soLuong;
+    } else {
+        $existingItem['cartKey']     = $newKey;
+        $existingItem['maTrongKinh'] = $maTrongKinh ?: null;
+        $existingItem['tenTrong']    = $tenTrong;
+        $existingItem['giaTrong']    = $giaTrong;
+        $existingItem['ghiChuDoMat'] = $ghiChuDoMat;
+        $existingItem['maKetQuaDo']  = $maKQ;
+        $_SESSION['cart'][$newKey]   = $existingItem;
+    }
+
+    syncDbCartIfLogged($conn);
+    $_SESSION['msg'] = "✓ Đã cập nhật cấu hình tròng kính cho [" . $existingItem['tenSanPham'] . "]!";
     header("Location: ../index.php?tab=cart-view");
     exit;
 }

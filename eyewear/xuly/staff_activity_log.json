@@ -1,0 +1,72 @@
+[
+    {
+        "maNguoiDung": "ND01",
+        "loai": "pos_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Tạo đơn tại quầy #DH13 cho khách: Hào (0941579115) — Tổng: 10.121.265 đ",
+        "thoiGian": "2026-11-17 08:48:11"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đã thanh toán (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:38:49"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đã giao (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:38:59"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đang xử lý (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:39:04"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đã xác nhận (COD) (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:39:09"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Chờ xác nhận thanh toán (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:39:12"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Xác nhận thanh toán QR đơn hàng #DH13",
+        "thoiGian": "2026-11-17 09:39:14"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đã giao (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 09:39:20"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH13",
+        "moTa": "Cập nhật đơn hàng #DH13 → Trạng thái: Đã hủy (Khách: Hào - 0941579115)",
+        "thoiGian": "2026-11-17 12:20:19"
+    },
+    {
+        "maNguoiDung": "ND01",
+        "loai": "process_order",
+        "maDoiTuong": "DH14",
+        "moTa": "Duyệt yêu cầu hủy đơn #DH14",
+        "thoiGian": "2026-11-17 14:13:43"
+    }
+]

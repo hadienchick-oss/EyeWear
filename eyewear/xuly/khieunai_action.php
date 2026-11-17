@@ -63,6 +63,14 @@ if ($action === 'reply' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn->prepare("UPDATE KHIEUNAI SET trangThai = ?, phanHoi = ? WHERE maKhieuNai = ?")
              ->execute([$trangThai, $phanHoi, $maKN]);
+        if (isLogged()) {
+            ghiNhatKyNhanVien(
+                $_SESSION['user']['maNguoiDung'],
+                'reply_complaint',
+                $maKN,
+                "Xử lý khiếu nại #$maKN ($trangThai): $phanHoi"
+            );
+        }
         $_SESSION['msg'] = "Đã cập nhật phản hồi cho khiếu nại [$maKN]!";
     } catch (Exception $e) {
         $_SESSION['err'] = "Lỗi phản hồi khiếu nại: " . $e->getMessage();

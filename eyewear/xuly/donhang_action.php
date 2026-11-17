@@ -113,12 +113,50 @@ if ($action === 'checkout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($_SESSION['cart'] as $item) {
             $donGiaUnit = (float)$item['giaGong'] + (float)$item['giaTrong'];
             $qty = (int)$item['soLuong'];
+            $maTKToSave = $item['maTrongKinh'];
+            $ghiChuRx = trim($item['ghiChuDoMat'] ?? '');
+
+            // Nếu đơn có chọn tròng kính kèm độ mắt, lưu vào KETQUADOMAT & TRONGKINH để kỹ thuật viên xem thông số cắt kính
+            if ($maTKToSave && $ghiChuRx !== '' && $ghiChuRx !== 'Kính không độ') {
+                $maKQ = $item['maKetQuaDo'] ?? null;
+                $rxMaKH = $maKH;
+                if (!$rxMaKH) {
+                    // Nếu khách vãng lai chưa có maKhachHang, lấy KH01 làm hồ sơ tạm để lưu KETQUADOMAT (vẫn giữ maKhachHang = NULL trên DONHANG)
+                    $rxMaKH = $conn->query("SELECT maKhachHang FROM KHACHHANG ORDER BY maKhachHang ASC LIMIT 1")->fetchColumn();
+                }
+                if (!$maKQ && $rxMaKH) {
+                    $maKQ = taoMaTuDong($conn, 'KETQUADOMAT', 'maKetQuaDo', 'KQ');
+                    $conn->prepare("INSERT INTO KETQUADOMAT (maKetQuaDo, maKhachHang, ngayDo, ketQua) VALUES (?, ?, NOW(), ?)")
+                         ->execute([$maKQ, $rxMaKH, $ghiChuRx]);
+                }
+                if ($maKQ) {
+                    $stmtOrigTK = $conn->prepare("SELECT * FROM TRONGKINH WHERE maTrongKinh = ? LIMIT 1");
+                    $stmtOrigTK->execute([$maTKToSave]);
+                    $origTK = $stmtOrigTK->fetch();
+                    if ($origTK) {
+                        $newMaTK = taoMaTuDong($conn, 'TRONGKINH', 'maTrongKinh', 'TRK');
+                        $conn->prepare("INSERT INTO TRONGKINH (maTrongKinh, maSanPham, maKetQuaDo, loai, chietSuat, tinhNang, gia, vatLieu) 
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                             ->execute([
+                                $newMaTK,
+                                $item['maSanPham'],
+                                $maKQ,
+                                $origTK['loai'],
+                                $origTK['chietSuat'],
+                                $origTK['tinhNang'],
+                                $origTK['gia'],
+                                $origTK['vatLieu']
+                             ]);
+                        $maTKToSave = $newMaTK;
+                    }
+                }
+            }
 
             for ($q = 0; $q < $qty; $q++) {
                 $maCTDH = taoMaTuDong($conn, 'CHITIETDONHANG', 'maCTDDonHang', 'CTDH');
                 $conn->prepare("INSERT INTO CHITIETDONHANG (maCTDDonHang, maDonHang, maSanPham, maTrongKinh, donGia) 
                                 VALUES (?, ?, ?, ?, ?)")
-                     ->execute([$maCTDH, $maDH, $item['maSanPham'], $item['maTrongKinh'], $donGiaUnit]);
+                     ->execute([$maCTDH, $maDH, $item['maSanPham'], $maTKToSave, $donGiaUnit]);
             }
 
             if ($isCOD) {
@@ -223,6 +261,9 @@ if ($action === 'confirm_payment') {
         }
 
         $conn->commit();
+        if ($currentStatus === 'Chờ xác nhận thanh toán' && isLogged()) {
+            ghiNhatKyNhanVien($_SESSION['user']['maNguoiDung'], 'process_order', $maDH, "Xác nhận thanh toán QR đơn hàng #$maDH");
+        }
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
         $_SESSION['err'] = "Lỗi xác nhận đơn: " . $e->getMessage();
@@ -292,6 +333,9 @@ if ($action === 'edit_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $conn->commit();
+        if (isLogged()) {
+            ghiNhatKyNhanVien($_SESSION['user']['maNguoiDung'], 'process_order', $maDH, "Cập nhật đơn hàng #$maDH → Trạng thái: $newStatus (Khách: $tenNN - $soDienThoai)");
+        }
         $_SESSION['msg'] = "Đã cập nhật thông tin đơn hàng [$maDH] thành công!";
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
@@ -314,8 +358,8 @@ if ($action === 'request_cancel') {
         $stmtTT->execute([$maDH]);
         $st = $stmtTT->fetchColumn();
 
-        if (!$st || in_array($st, ['Đã giao', 'Đã hủy', 'Chờ xác nhận hủy'])) {
-            $_SESSION['err'] = "Đơn hàng [$maDH] không thể gửi yêu cầu hủy ở trạng thái hiện tại.";
+        if (!$st || in_array($st, ['Đang mài lắp', 'Đang giao hàng', 'Đã giao', 'Đã hủy', 'Chờ xác nhận hủy'])) {
+            $_SESSION['err'] = "Đơn hàng [$maDH] đang ở trạng thái '$st' nên không thể hủy!";
         } else {
             // Lưu ghi chú trạng thái trước khi hủy vào session hoặc cập nhật thẳng trạng thái chờ duyệt hủy
             $_SESSION['pre_cancel_status'][$maDH] = $st;
@@ -347,9 +391,9 @@ if ($action === 'admin_cancel' || $action === 'approve_cancel') {
         $stmtTT->execute([$maDH]);
         $ttRow = $stmtTT->fetch();
 
-        if ($ttRow && $ttRow['trangThai'] === 'Đã giao') {
+        if ($ttRow && in_array($ttRow['trangThai'], ['Đang mài lắp', 'Đang giao hàng', 'Đã giao'])) {
             $conn->rollBack();
-            $_SESSION['err'] = "Đơn hàng [$maDH] đã giao thành công nên không thể hủy!";
+            $_SESSION['err'] = "Đơn hàng [$maDH] đang ở trạng thái '" . $ttRow['trangThai'] . "' nên không thể hủy!";
             header("Location: ../index.php?tab=admin-orders");
             exit;
         }
@@ -378,12 +422,16 @@ if ($action === 'admin_cancel' || $action === 'approve_cancel') {
             }
 
             unset($_SESSION['pre_cancel_status'][$maDH]);
+            $cancelLabel = ($action === 'approve_cancel') ? "Duyệt yêu cầu hủy đơn #$maDH" : "Đơn phương hủy đơn #$maDH";
             $_SESSION['msg'] = ($action === 'approve_cancel')
                 ? "Đã duyệt yêu cầu hủy đơn [$maDH] của khách và hoàn trả số lượng tồn kho!"
                 : "Quản trị viên đã đơn phương hủy đơn hàng [$maDH] và hoàn trả số lượng về kho!";
         }
 
         $conn->commit();
+        if (!empty($cancelLabel) && isLogged()) {
+            ghiNhatKyNhanVien($_SESSION['user']['maNguoiDung'], 'process_order', $maDH, $cancelLabel);
+        }
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
         $_SESSION['err'] = "Lỗi khi hủy đơn hàng: " . $e->getMessage();
@@ -404,6 +452,9 @@ if ($action === 'reject_cancel') {
     $conn->prepare("UPDATE THANHTOAN SET trangThai = ? WHERE maDonHang = ? AND trangThai = 'Chờ xác nhận hủy'")
          ->execute([$restoreSt, $maDH]);
     unset($_SESSION['pre_cancel_status'][$maDH]);
+    if (isLogged()) {
+        ghiNhatKyNhanVien($_SESSION['user']['maNguoiDung'], 'process_order', $maDH, "Từ chối yêu cầu hủy đơn #$maDH (Tiếp tục xử lý)");
+    }
     $_SESSION['msg'] = "Đã từ chối yêu cầu hủy đơn [$maDH]. Đơn hàng tiếp tục được xử lý.";
     header("Location: ../index.php?tab=admin-orders");
     exit;
@@ -496,6 +547,29 @@ if ($action === 'create_pos_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $voucherCode = strtoupper(trim($_POST['voucherCode'] ?? ''));
         $phuongThuc = $_POST['phuongThuc'] ?? 'Tiền mặt tại quầy';
 
+        // Thông số độ mắt nhập tại quầy (SPH / CYL / AXIS / PD)
+        $posCoDoMat = $_POST['posCoDoMat'] ?? 'no_rx';
+        $posSphOD   = trim($_POST['posSphOD'] ?? '');
+        $posSphOS   = trim($_POST['posSphOS'] ?? '');
+        $posCylAxis = trim($_POST['posCylAxis'] ?? '');
+        $posPD      = trim($_POST['posPD'] ?? '');
+
+        $maKetQuaDoPOS = null;
+        if ($posCoDoMat === 'with_rx' && ($posSphOD !== '' || $posSphOS !== '' || $posCylAxis !== '' || $posPD !== '')) {
+            $odVal = $posSphOD !== '' ? $posSphOD : '0.00';
+            $osVal = $posSphOS !== '' ? $posSphOS : '0.00';
+            $cylVal = $posCylAxis !== '' ? $posCylAxis : 'Không loạn';
+            $pdVal = $posPD !== '' ? $posPD : '62';
+            $ketQuaText = "OD(Phải): $odVal | OS(Trái): $osVal | Loạn/Trục: $cylVal | PD: {$pdVal}mm";
+
+            $targetMaKH = $maKH ?: $conn->query("SELECT maKhachHang FROM KHACHHANG ORDER BY maKhachHang ASC LIMIT 1")->fetchColumn();
+            if ($targetMaKH) {
+                $maKetQuaDoPOS = taoMaTuDong($conn, 'KETQUADOMAT', 'maKetQuaDo', 'KQ');
+                $conn->prepare("INSERT INTO KETQUADOMAT (maKetQuaDo, maKhachHang, ngayDo, ketQua) VALUES (?, ?, NOW(), ?)")
+                     ->execute([$maKetQuaDoPOS, $targetMaKH, $ketQuaText]);
+            }
+        }
+
         $tongTamTinh = 0;
         $orderLines = [];
 
@@ -521,13 +595,37 @@ if ($action === 'create_pos_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $giaTrong = 0;
             $validMTK = null;
             if ($mtk !== '') {
-                $stmtLens = $conn->prepare("SELECT gia FROM TRONGKINH WHERE maTrongKinh = ? LIMIT 1");
+                $stmtLens = $conn->prepare("SELECT * FROM TRONGKINH WHERE maTrongKinh = ? LIMIT 1");
                 $stmtLens->execute([$mtk]);
                 $lensRow = $stmtLens->fetch();
                 if ($lensRow) {
                     $giaTrong = (float)$lensRow['gia'];
-                    $validMTK = $mtk;
+                    if ($maKetQuaDoPOS) {
+                        $newMaTK = taoMaTuDong($conn, 'TRONGKINH', 'maTrongKinh', 'TRK');
+                        $conn->prepare("INSERT INTO TRONGKINH (maTrongKinh, maSanPham, maKetQuaDo, loai, chietSuat, tinhNang, gia, vatLieu) 
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                             ->execute([
+                                $newMaTK,
+                                $msp,
+                                $maKetQuaDoPOS,
+                                $lensRow['loai'],
+                                $lensRow['chietSuat'],
+                                $lensRow['tinhNang'],
+                                $lensRow['gia'],
+                                $lensRow['vatLieu']
+                             ]);
+                        $validMTK = $newMaTK;
+                    } else {
+                        $validMTK = $mtk;
+                    }
                 }
+            } elseif ($maKetQuaDoPOS) {
+                // Nếu quản trị nhập độ mắt nhưng chưa chọn loại tròng, tự gắn vào tròng đơn tiêu chuẩn để lưu thông số đo mắt vào đơn
+                $newMaTK = taoMaTuDong($conn, 'TRONGKINH', 'maTrongKinh', 'TRK');
+                $conn->prepare("INSERT INTO TRONGKINH (maTrongKinh, maSanPham, maKetQuaDo, loai, chietSuat, tinhNang, gia, vatLieu) 
+                                VALUES (?, ?, ?, 'Đơn tròng theo toa', 1.56, 'Cắt theo thông số đo mắt tại quầy', 0, 'Nhựa hữu cơ CR-39')")
+                     ->execute([$newMaTK, $msp, $maKetQuaDoPOS]);
+                $validMTK = $newMaTK;
             }
 
             $donGiaUnit = (float)$sp['gia'] + $giaTrong;
@@ -598,6 +696,14 @@ if ($action === 'create_pos_order' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $conn->commit();
+        if (isLogged()) {
+            ghiNhatKyNhanVien(
+                $_SESSION['user']['maNguoiDung'],
+                'pos_order',
+                $maDH,
+                "Tạo đơn tại quầy #$maDH cho khách: $tenNN ($soDienThoai) — Tổng: " . number_format($tongThanhToan, 0, ',', '.') . " đ"
+            );
+        }
         $_SESSION['msg'] = "Tạo đơn tại cửa hàng [$maDH] cho khách [$tenNN] thành công (Đã thanh toán)!" . $newAccountNote;
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
@@ -639,6 +745,41 @@ if ($action === 'submit_review' && $_SERVER['REQUEST_METHOD'] === 'POST') {
          ->execute([$maDG, $maSP, $maKH, $sao, $binhLuan]);
 
     $_SESSION['msg'] = "Cảm ơn bạn đã gửi đánh giá $sao sao cho sản phẩm!";
+    header("Location: ../index.php?tab=shop-view");
+    exit;
+}
+
+// 7. KHÁCH HÀNG SỬA ĐÁNH GIÁ CỦA CHÍNH MÌNH
+if ($action === 'edit_review' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $maKH = layMaKhachHangHienTai($conn);
+    $maDanhGia = $_POST['maDanhGia'] ?? '';
+    $sao = max(1, min(5, (int)($_POST['sao'] ?? 5)));
+    $binhLuan = trim($_POST['binhLuan'] ?? '');
+
+    if (!$maKH || $maDanhGia === '') {
+        $_SESSION['err'] = "Không thể cập nhật đánh giá!";
+        header("Location: ../index.php?tab=shop-view");
+        exit;
+    }
+
+    $conn->prepare("UPDATE DANHGIA SET sao = ?, binhLuan = ? WHERE maDanhGia = ? AND maKhachHang = ?")
+         ->execute([$sao, $binhLuan, $maDanhGia, $maKH]);
+
+    $_SESSION['msg'] = "✓ Đã cập nhật đánh giá của bạn!";
+    header("Location: ../index.php?tab=shop-view");
+    exit;
+}
+
+// 8. KHÁCH HÀNG XÓA ĐÁNH GIÁ CỦA CHÍNH MÌNH
+if ($action === 'delete_review') {
+    $maKH = layMaKhachHangHienTai($conn);
+    $maDanhGia = $_GET['id'] ?? '';
+
+    if ($maKH && $maDanhGia !== '') {
+        $conn->prepare("DELETE FROM DANHGIA WHERE maDanhGia = ? AND maKhachHang = ?")
+             ->execute([$maDanhGia, $maKH]);
+        $_SESSION['msg'] = "✓ Đã xóa đánh giá của bạn.";
+    }
     header("Location: ../index.php?tab=shop-view");
     exit;
 }

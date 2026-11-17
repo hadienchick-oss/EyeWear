@@ -107,9 +107,35 @@ function filterShopProducts() {
         }
     });
 
+    const bestsellerSec = document.getElementById('bestsellerSection');
+    if (bestsellerSec) {
+        bestsellerSec.style.display = 'block';
+    }
+
     const emptyNotice = document.getElementById('shopEmptySearch');
     if (emptyNotice) {
         emptyNotice.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+}
+
+function filterByBrandFromDetail(brandName) {
+    closeModal('productDetailModal');
+    switchTab('shop-view');
+    const brandSelect = document.getElementById('shopBrandFilter');
+    if (brandSelect) {
+        brandSelect.value = (brandName || '').toLowerCase().trim();
+    }
+    const searchInput = document.getElementById('shopSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    selectedColorChip = '';
+    document.querySelectorAll('.color-chip').forEach((c, idx) => c.classList.toggle('active', idx === 0));
+    filterShopProducts();
+
+    const gridTitle = document.getElementById('allProductsHeading');
+    if (gridTitle) {
+        gridTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
 
@@ -129,8 +155,36 @@ function openProductDetail(maSP) {
     const sp = (window.PRODUCTS_MAP && window.PRODUCTS_MAP[maSP]) ? window.PRODUCTS_MAP[maSP] : null;
     if (!sp) return;
 
-    document.getElementById('detailBrand').innerText = sp.tenThuongHieu || 'Việt MAC';
+    const brandName = sp.tenThuongHieu || 'Việt MAC';
+    document.getElementById('detailBrand').innerText = brandName;
     document.getElementById('detailName').innerText = sp.tenSanPham + ' (' + sp.maSanPham + ')';
+
+    const brandIconBtn = document.getElementById('detailBrandIconBtn');
+    const brandLogoEl = document.getElementById('detailBrandLogo');
+    const brandFallbackEl = document.getElementById('detailBrandFallback');
+    const brandDescEl = document.getElementById('detailBrandDesc');
+
+    if (brandDescEl) {
+        brandDescEl.innerText = 'Thương hiệu ' + brandName + ': ' + (sp.moTaThuongHieu || 'Mắt kính chính hãng phân phối tại Việt MAC.');
+    }
+    if (brandLogoEl && brandFallbackEl) {
+        if (sp.logoThuongHieu) {
+            brandLogoEl.src = 'images/logo_thuonghieu/' + sp.logoThuongHieu;
+            brandLogoEl.style.display = 'block';
+            brandFallbackEl.style.display = 'none';
+        } else {
+            brandLogoEl.style.display = 'none';
+            brandFallbackEl.style.display = 'inline-block';
+            brandFallbackEl.innerText = brandName.slice(0, 3);
+        }
+    }
+    // Chỉ khi ấn vào icon Logo thương hiệu mới lọc các sản phẩm của hãng đó
+    if (brandIconBtn) {
+        brandIconBtn.onclick = function(e) {
+            e.stopPropagation();
+            filterByBrandFromDetail(brandName);
+        };
+    }
     document.getElementById('detailRating').innerText = '★ ' + (sp.diemTrungBinh || '5.0') + ' (' + (sp.dsDanhGia ? sp.dsDanhGia.length : 0) + ' đánh giá) • Đã bán: ' + (sp.daBan || 0);
     document.getElementById('detailPrice').innerText = parseFloat(sp.gia).toLocaleString('vi-VN') + ' đ';
 
@@ -205,9 +259,40 @@ function openProductDetail(maSP) {
     revList.innerHTML = '';
     if (sp.dsDanhGia && sp.dsDanhGia.length > 0) {
         sp.dsDanhGia.forEach(dg => {
+            const isOwner = (window.CURRENT_MA_KH && dg.maKhachHang === window.CURRENT_MA_KH);
             const div = document.createElement('div');
-            div.style.cssText = 'padding:8px 10px; border-bottom:1px solid #f1f5f9; font-size:13px;';
-            div.innerHTML = `<strong>${dg.hoTen}</strong> <span style="color:#f59e0b;">${'★'.repeat(dg.sao)}</span><p style="color:#475569; margin-top:2px;">${dg.binhLuan || ''}</p>`;
+            div.style.cssText = 'padding:10px; border-bottom:1px solid #f1f5f9; font-size:13px;';
+            const ownerControls = isOwner ? `
+                <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleEditReviewForm('${dg.maDanhGia}')">Sửa</button>
+                    <a href="xuly/donhang_action.php?action=delete_review&id=${dg.maDanhGia}" class="btn btn-danger btn-sm" onclick="return confirm('Xóa đánh giá này?')">Xóa</a>
+                </div>
+            ` : '';
+
+            const editFormHtml = isOwner ? `
+                <form id="edit-rev-form-${dg.maDanhGia}" action="xuly/donhang_action.php" method="POST" style="display:none; margin-top:8px; gap:6px; flex-wrap:wrap;">
+                    <input type="hidden" name="action" value="edit_review">
+                    <input type="hidden" name="maDanhGia" value="${dg.maDanhGia}">
+                    <select name="sao" style="padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px;">
+                        <option value="5" ${parseInt(dg.sao)===5?'selected':''}>5 ★</option>
+                        <option value="4" ${parseInt(dg.sao)===4?'selected':''}>4 ★</option>
+                        <option value="3" ${parseInt(dg.sao)===3?'selected':''}>3 ★</option>
+                        <option value="2" ${parseInt(dg.sao)===2?'selected':''}>2 ★</option>
+                        <option value="1" ${parseInt(dg.sao)===1?'selected':''}>1 ★</option>
+                    </select>
+                    <input type="text" name="binhLuan" value="${(dg.binhLuan || '').replace(/"/g, '&quot;')}" style="flex:1; min-width:160px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px;" required>
+                    <button type="submit" class="btn btn-dark btn-sm">Lưu</button>
+                </form>
+            ` : '';
+
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <div><strong>${dg.hoTen}</strong> <span style="color:#f59e0b;">${'★'.repeat(dg.sao)}</span></div>
+                    ${ownerControls}
+                </div>
+                <p style="color:#475569; margin-top:4px;">${dg.binhLuan || ''}</p>
+                ${editFormHtml}
+            `;
             revList.appendChild(div);
         });
     } else {
@@ -594,23 +679,49 @@ function openVoucherModal(mode, data = null) {
 // =========================================================
 // 8. XEM CHI TIẾT ĐƠN HÀNG & KHIẾU NẠI
 // =========================================================
+function toggleEditReviewForm(maDanhGia) {
+    const f = document.getElementById('edit-rev-form-' + maDanhGia);
+    if (f) {
+        f.style.display = (f.style.display === 'none' || f.style.display === '') ? 'flex' : 'none';
+    }
+}
+
 function openOrderDetailModal(od) {
-    document.getElementById('odModalTitle').innerText = 'Chi Tiết Đơn Hàng #' + od.maDonHang;
+    document.getElementById('odModalTitle').innerText = 'Chi Tiết Đơn Hàng & Phiếu Kỹ Thuật #' + od.maDonHang;
     document.getElementById('odCustomerInfo').innerHTML = `
-        <p><strong>Người nhận:</strong> ${od.tenNN} — <strong>SĐT:</strong> ${od.soDienThoai}</p>
+        <p><strong>Khách nhận hàng:</strong> ${od.tenNN} — <strong>SĐT:</strong> ${od.soDienThoai}</p>
         <p><strong>Địa chỉ giao:</strong> ${od.diaChi}</p>
-        <p><strong>Ngày đặt:</strong> ${od.ngayDat} | <strong>Thanh toán:</strong> ${od.phuongThuc || 'COD'}</p>
-        <p><strong>Trạng thái hiện tại:</strong> <span class="status-badge status-info">${od.trangThaiDon || 'Đang xử lý'}</span></p>
+        <p><strong>Ngày đặt:</strong> ${od.ngayDat} | <strong>Phương thức TT:</strong> ${od.phuongThuc || 'COD'}</p>
+        <p><strong>Trạng thái đơn:</strong> <span class="status-badge status-info">${od.trangThaiDon || 'Đang xử lý'}</span></p>
     `;
 
     const tbody = document.getElementById('odItemsBody');
     tbody.innerHTML = '';
     if (od.chiTiet && od.chiTiet.length > 0) {
         od.chiTiet.forEach(item => {
+            const lensInfo = item.loaiTrong
+                ? `<strong>${item.loaiTrong}</strong> — Chiết suất <strong>${item.chietSuat}</strong> (${item.tinhNang || ''})`
+                : 'Chỉ lấy gọng kính (Không tròng)';
+
+            let rxHtml = '';
+            if (item.thongSoDoMat) {
+                rxHtml = `
+                    <div class="rx-detail-grid">
+                        <div style="grid-column: span 2; font-weight:800; color:#0f172a;">👓 THÔNG SỐ ĐỘ MẮT (SPH / CYL / AXIS / PD):</div>
+                        <div style="grid-column: span 2;">${item.thongSoDoMat}</div>
+                    </div>
+                `;
+            } else if (item.loaiTrong) {
+                rxHtml = `<div style="font-size:12px; color:#64748b; margin-top:4px;">Độ mắt: Kính không độ (SPH: 0.00 | CYL: 0.00 | PD: Tiêu chuẩn)</div>`;
+            }
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${item.tenSanPham}</strong> (${item.maSanPham})</td>
-                <td>${item.loaiTrong ? (item.loaiTrong + ' - CS ' + item.chietSuat + ' (' + item.tinhNang + ')') : 'Chỉ gọng kính'}</td>
+                <td><strong>${item.tenSanPham}</strong><br><small style="color:#64748b;">Mã SP: ${item.maSanPham}</small></td>
+                <td>
+                    <div>${lensInfo}</div>
+                    ${rxHtml}
+                </td>
                 <td><strong>${parseFloat(item.donGia).toLocaleString('vi-VN')} đ</strong></td>
             `;
             tbody.appendChild(tr);
@@ -618,6 +729,84 @@ function openOrderDetailModal(od) {
     }
     document.getElementById('odTotalAmount').innerText = parseFloat(od.tongTien).toLocaleString('vi-VN') + ' đ';
     openModal('orderDetailModal', false);
+}
+
+// =========================================================
+// 10. CHỈNH SỬA TRÒNG KÍNH / ĐỘ MẮT CỦA SẢN PHẨM TRONG GIỎ HÀNG
+// =========================================================
+let cartEditFramePrice = 0;
+
+function openCartItemEditModal(item) {
+    cartEditFramePrice = parseFloat(item.giaGong || 0);
+    document.getElementById('editCartOldKey').value = item.cartKey;
+    document.getElementById('editCartTitle').innerText = 'Tùy Chỉnh Gọng & Tròng: ' + item.tenSanPham;
+    document.getElementById('editCartFramePriceText').innerText = 'Giá gọng kính: ' + cartEditFramePrice.toLocaleString('vi-VN') + ' đ';
+
+    const rxNote = item.ghiChuDoMat || '';
+    let mode = 'frame_only';
+    if (item.maTrongKinh) {
+        mode = (rxNote && rxNote !== 'Kính không độ') ? 'with_rx' : 'no_rx';
+    }
+
+    const radio = document.querySelector(`input[name="loaiNhuCau"][value="${mode}"]`);
+    if (radio) radio.checked = true;
+
+    const lensSelect = document.getElementById('editCartLensSelect');
+    if (lensSelect && item.maTrongKinh) {
+        lensSelect.value = item.maTrongKinh;
+    }
+
+    // Parse existing SPH / CYL / PD if present
+    document.getElementById('editCartSphOD').value = '';
+    document.getElementById('editCartSphOS').value = '';
+    document.getElementById('editCartCylAxis').value = '';
+    document.getElementById('editCartPD').value = '';
+
+    if (mode === 'with_rx' && rxNote.includes('OD(Phải):')) {
+        const mOD = rxNote.match(/OD\(Phải\):\s*([^|]+)/);
+        const mOS = rxNote.match(/OS\(Trái\):\s*([^|]+)/);
+        const mCyl = rxNote.match(/Loạn\/Trục:\s*([^|]+)/);
+        const mPD = rxNote.match(/PD:\s*(\d+)/);
+        if (mOD) document.getElementById('editCartSphOD').value = mOD[1].trim();
+        if (mOS) document.getElementById('editCartSphOS').value = mOS[1].trim();
+        if (mCyl) document.getElementById('editCartCylAxis').value = mCyl[1].trim();
+        if (mPD) document.getElementById('editCartPD').value = mPD[1].trim();
+    }
+
+    toggleCartEditMode();
+    openModal('editCartItemModal', false);
+}
+
+function toggleCartEditMode() {
+    const mode = document.querySelector('input[name="loaiNhuCau"]:checked')?.value || 'frame_only';
+    const rxBox = document.getElementById('editCartRxBox');
+    const lensBox = document.getElementById('editCartLensBox');
+
+    if (mode === 'frame_only') {
+        if (rxBox) rxBox.style.display = 'none';
+        if (lensBox) lensBox.style.display = 'none';
+    } else if (mode === 'no_rx') {
+        if (rxBox) rxBox.style.display = 'none';
+        if (lensBox) lensBox.style.display = 'block';
+    } else {
+        if (rxBox) rxBox.style.display = 'block';
+        if (lensBox) lensBox.style.display = 'block';
+    }
+    recalcCartEditPrice();
+}
+
+function recalcCartEditPrice() {
+    const mode = document.querySelector('input[name="loaiNhuCau"]:checked')?.value || 'frame_only';
+    let lensPrice = 0;
+    if (mode !== 'frame_only') {
+        const lensSelect = document.getElementById('editCartLensSelect');
+        if (lensSelect && lensSelect.selectedIndex >= 0) {
+            lensPrice = parseFloat(lensSelect.options[lensSelect.selectedIndex]?.dataset?.price || 0);
+        }
+    }
+    const total = cartEditFramePrice + lensPrice;
+    const totalEl = document.getElementById('editCartNewUnitTotal');
+    if (totalEl) totalEl.innerText = total.toLocaleString('vi-VN') + ' đ';
 }
 
 function openComplaintModal(maDonHang) {
@@ -715,4 +904,156 @@ function recalcPosTotal() {
     const finalTotal = Math.max(0, rawTotal - discount);
     const el = document.getElementById('posEstimatedTotal');
     if (el) el.innerText = finalTotal.toLocaleString('vi-VN') + ' đ';
+}
+
+
+// =========================================================
+// 11. XEM CHI TIẾT KHÁCH HÀNG & NHÂN VIÊN TRONG QUẢN TRỊ
+// =========================================================
+function openCustomerDetailModal(kh) {
+    document.getElementById('custDetailTitle').innerText = 'Hồ Sơ Khách Hàng: ' + kh.hoTen + ' (' + kh.maKhachHang + ')';
+    document.getElementById('custDetailInfo').innerHTML = `
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0;">
+            <p><strong>Mã khách hàng:</strong> ${kh.maKhachHang}</p>
+            <p><strong>Số điện thoại:</strong> ${kh.soDienThoai}</p>
+            <p><strong>Họ và tên:</strong> ${kh.hoTen}</p>
+            <p><strong>Email:</strong> ${kh.email}</p>
+            <p><strong>Giới tính:</strong> ${kh.gioiTinh || 'Chưa cập nhật'}</p>
+            <p><strong>Ngày sinh:</strong> ${kh.ngaySinh ? kh.ngaySinh.slice(0, 10) : 'Chưa cập nhật'}</p>
+            <p style="grid-column: span 2;"><strong>Địa chỉ mặc định:</strong> ${kh.diaChi || 'Chưa cập nhật'}</p>
+            <p><strong>Tổng số đơn đã mua:</strong> <span class="status-badge status-processing">${kh.soDonHang || 0} đơn</span></p>
+            <p><strong>Tổng chi tiêu:</strong> <strong style="color:#15803d;">${parseFloat(kh.tongChiTieu || 0).toLocaleString('vi-VN')} đ</strong></p>
+        </div>
+    `;
+
+    const ordersList = (window.ALL_ADMIN_ORDERS || []).filter(od => 
+        od.maKhachHang === kh.maKhachHang || (!od.maKhachHang && od.soDienThoai === kh.soDienThoai)
+    );
+    const tbody = document.getElementById('custDetailOrdersBody');
+    tbody.innerHTML = '';
+
+    if (ordersList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">Khách hàng này chưa có đơn hàng nào.</td></tr>';
+    } else {
+        ordersList.forEach(od => {
+            const st = od.trangThaiDon || 'Đang xử lý';
+            const badgeClass = (st === 'Đã hủy') ? 'status-stopped' : (st === 'Đã giao' ? 'status-active' : 'status-processing');
+            const itemsSummary = (od.chiTiet || []).map(c => c.tenSanPham).join(', ');
+            const tr = document.createElement('tr');
+            tr.className = 'order-row-clickable';
+            tr.title = 'Nhấn để xem chi tiết đơn hàng & độ mắt cắt kính';
+            tr.onclick = function() {
+                openOrderDetailModal(od);
+            };
+            tr.innerHTML = `
+                <td><strong>${od.maDonHang}</strong></td>
+                <td>${od.ngayDat}</td>
+                <td>${itemsSummary || '-'}</td>
+                <td><strong>${parseFloat(od.tongTien).toLocaleString('vi-VN')} đ</strong></td>
+                <td><span class="status-badge ${badgeClass}">${st}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    openModal('customerDetailModal', false);
+}
+
+function openStaffDetailModal(nv) {
+    document.getElementById('staffDetailTitle').innerText = 'Chi Tiết Hoạt Động Nhân Viên: ' + nv.hoTen + ' (' + nv.maNguoiDung + ')';
+    const donTaoList = nv.donDaTao || [];
+    const donXuLyList = nv.donDaXuLy || [];
+    const knList = nv.khieuNaiXuLy || [];
+
+    document.getElementById('staffDetailInfo').innerHTML = `
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:#f8fafc; padding:12px; border-radius:10px; border:1px solid #e2e8f0;">
+            <p><strong>Mã người dùng:</strong> ${nv.maNguoiDung}</p>
+            <p><strong>Vai trò:</strong> <span class="role-tag">Nhân Viên (VT02)</span></p>
+            <p><strong>Họ và tên:</strong> ${nv.hoTen}</p>
+            <p><strong>Email:</strong> ${nv.email}</p>
+            <p><strong>Đơn đã tạo (POS):</strong> <strong>${donTaoList.length} đơn</strong></p>
+            <p><strong>Đơn đã xử lý / Khiếu nại:</strong> <strong>${donXuLyList.length} đơn</strong> • <strong>${knList.length} khiếu nại</strong></p>
+        </div>
+    `;
+
+    // 1. Đơn hàng tại quầy đã tạo & bán cho khách hàng nào
+    const ordersBody = document.getElementById('staffOrdersBody');
+    ordersBody.innerHTML = '';
+    if (donTaoList.length === 0) {
+        ordersBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b;">Nhân viên này chưa tạo đơn tại quầy nào.</td></tr>';
+    } else {
+        donTaoList.forEach(entry => {
+            const matchedOrder = (window.ALL_ADMIN_ORDERS || []).find(o => o.maDonHang === entry.maDoiTuong);
+            const tr = document.createElement('tr');
+            if (matchedOrder) {
+                tr.className = 'order-row-clickable';
+                tr.title = 'Nhấn để xem chi tiết đơn hàng';
+                tr.onclick = function() {
+                    openOrderDetailModal(matchedOrder);
+                };
+            }
+            tr.innerHTML = `
+                <td><strong>${entry.maDoiTuong}</strong></td>
+                <td>${matchedOrder ? (matchedOrder.tenNN + ' — SĐT: ' + matchedOrder.soDienThoai) : entry.moTa}</td>
+                <td>${matchedOrder ? ('<strong>' + parseFloat(matchedOrder.tongTien).toLocaleString('vi-VN') + ' đ</strong>') : '-'}</td>
+                <td>${entry.thoiGian}</td>
+            `;
+            ordersBody.appendChild(tr);
+        });
+    }
+
+    // 2. Đơn hàng đã xử lý (xác nhận QR, mài lắp, giao hàng, duyệt/từ chối hủy)
+    const processedBody = document.getElementById('staffProcessedOrdersBody');
+    if (processedBody) {
+        processedBody.innerHTML = '';
+        if (donXuLyList.length === 0) {
+            processedBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b;">Nhân viên này chưa xử lý đơn hàng nào.</td></tr>';
+        } else {
+            donXuLyList.forEach(entry => {
+                const matchedOrder = (window.ALL_ADMIN_ORDERS || []).find(o => o.maDonHang === entry.maDoiTuong);
+                const tr = document.createElement('tr');
+                if (matchedOrder) {
+                    tr.className = 'order-row-clickable';
+                    tr.title = 'Nhấn để xem chi tiết đơn hàng';
+                    tr.onclick = function() {
+                        openOrderDetailModal(matchedOrder);
+                    };
+                }
+                tr.innerHTML = `
+                    <td><strong>${entry.maDoiTuong}</strong></td>
+                    <td>${matchedOrder ? (matchedOrder.tenNN + ' (' + matchedOrder.soDienThoai + ')') : '-'}</td>
+                    <td>${entry.moTa}</td>
+                    <td>${entry.thoiGian}</td>
+                `;
+                processedBody.appendChild(tr);
+            });
+        }
+    }
+
+    // 3. Khiếu nại đã xử lý phản hồi
+    const knBody = document.getElementById('staffComplaintsBody');
+    knBody.innerHTML = '';
+    if (knList.length === 0) {
+        knBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#64748b;">Nhân viên này chưa xử lý phản hồi khiếu nại nào.</td></tr>';
+    } else {
+        knList.forEach(entry => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${entry.maDoiTuong}</strong></td>
+                <td>${entry.moTa}</td>
+                <td>${entry.thoiGian}</td>
+            `;
+            knBody.appendChild(tr);
+        });
+    }
+
+    openModal('staffDetailModal', false);
+}
+
+function togglePosRxFields() {
+    const mode = document.querySelector('input[name="posCoDoMat"]:checked')?.value || 'no_rx';
+    const rxBox = document.getElementById('posRxFieldsBox');
+    if (rxBox) {
+        rxBox.style.display = (mode === 'with_rx') ? 'grid' : 'none';
+    }
 }
